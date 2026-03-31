@@ -25,9 +25,24 @@ import frc.robot.subsystems.drive.GyroIOPigeon2;
 import frc.robot.subsystems.drive.ModuleIO;
 import frc.robot.subsystems.drive.ModuleIOSim;
 import frc.robot.subsystems.drive.ModuleIOSpark;
+import frc.robot.subsystems.indexer.Indexer;
+import frc.robot.subsystems.indexer.IndexerConstants;
+import frc.robot.subsystems.indexer.IndexerIO;
+import frc.robot.subsystems.indexer.IndexerIOSim;
+import frc.robot.subsystems.indexer.IndexerIOSparkMax;
+import frc.robot.subsystems.intake.Intake;
+import frc.robot.subsystems.intake.IntakeConstants;
+import frc.robot.subsystems.intake.IntakeIO;
+import frc.robot.subsystems.intake.IntakeIOSim;
+import frc.robot.subsystems.intake.IntakeIOSparkMax;
+import frc.robot.subsystems.launcher.Launcher;
+import frc.robot.subsystems.launcher.LauncherConstants;
+import frc.robot.subsystems.launcher.LauncherIO;
+import frc.robot.subsystems.launcher.LauncherIOSim;
+import frc.robot.subsystems.launcher.LauncherIOSparkMax;
 import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionIO;
-import frc.robot.subsystems.vision.VisionIOLimelight;
+import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
@@ -41,6 +56,9 @@ public class RobotContainer {
   // Subsystems
   private final Drive drive;
   private final Vision vision;
+  private final Intake intake;
+  private final Indexer indexer;
+  private final Launcher launcher;
 
   // Controller
   private final CommandXboxController controller = new CommandXboxController(0);
@@ -63,8 +81,21 @@ public class RobotContainer {
         vision =
             new Vision(
                 drive::addVisionMeasurement,
-                new VisionIOLimelight(camera0Name, drive::getRotation),
-                new VisionIOLimelight(camera1Name, drive::getRotation));
+                new VisionIOPhotonVision(camera0Name, robotToCamera0),
+                new VisionIOPhotonVision(camera1Name, robotToCamera1));
+        intake =
+            new Intake(
+                new IntakeIOSparkMax(
+                    IntakeConstants.kIntakePivotMotorCanId,
+                    IntakeConstants.kIntakeInnerRollerCanId,
+                    IntakeConstants.kIntakeOuterRollerCanId));
+        indexer = new Indexer(new IndexerIOSparkMax(IndexerConstants.kIndexerMotorCanId));
+        launcher =
+            new Launcher(
+                new LauncherIOSparkMax(
+                    LauncherConstants.kFeederMotorCanId,
+                    LauncherConstants.kShooterLeaderCanId,
+                    LauncherConstants.kShooterFollowerCanId));
         break;
 
       case SIM:
@@ -81,6 +112,9 @@ public class RobotContainer {
                 drive::addVisionMeasurement,
                 new VisionIOPhotonVisionSim(camera0Name, robotToCamera0, drive::getPose),
                 new VisionIOPhotonVisionSim(camera1Name, robotToCamera1, drive::getPose));
+        intake = new Intake(new IntakeIOSim());
+        indexer = new Indexer(new IndexerIOSim());
+        launcher = new Launcher(new LauncherIOSim());
         break;
 
       default:
@@ -93,6 +127,9 @@ public class RobotContainer {
                 new ModuleIO() {},
                 new ModuleIO() {});
         vision = new Vision(drive::addVisionMeasurement, new VisionIO() {}, new VisionIO() {});
+        intake = new Intake(new IntakeIO() {});
+        indexer = new Indexer(new IndexerIO() {});
+        launcher = new Launcher(new LauncherIO() {});
         break;
     }
 
@@ -134,15 +171,57 @@ public class RobotContainer {
             () -> -controller.getLeftX(),
             () -> -controller.getRightX()));
 
-    // Lock to 0° when A button is held
+    // A button: Deploy and run intake
     controller
         .a()
-        .whileTrue(
-            DriveCommands.joystickDriveAtAngle(
-                drive,
-                () -> -controller.getLeftY(),
-                () -> -controller.getLeftX(),
-                () -> Rotation2d.kZero));
+        .onTrue(
+            Commands.sequence(
+                Commands.runOnce(
+                    () -> intake.setTargetPosition(IntakeConstants.kIntakePivotDeployedPosition),
+                    intake),
+                Commands.runOnce(intake::run, intake)))
+        .onFalse(Commands.runOnce(intake::stop, intake));
+
+    // Y button: Retract intake
+    controller
+        .y()
+        .onTrue(
+            Commands.runOnce(
+                () -> intake.setTargetPosition(IntakeConstants.kIntakePivotRetractedPosition),
+                intake))
+        .onFalse(Commands.runOnce(intake::stopPivot, intake));
+
+    // Left bumper: Spin intake reverse (unjam)
+    controller
+        .leftBumper()
+        .onTrue(Commands.runOnce(intake::runReverse, intake))
+        .onFalse(Commands.runOnce(intake::stop, intake));
+
+    // Right bumper: Run indexer and launcher together
+    controller
+        .rightBumper()
+        .onTrue(
+            Commands.sequence(
+                Commands.runOnce(launcher::spinUp, launcher),
+                Commands.waitUntil(launcher::isAtTargetRpm),
+                Commands.runOnce(indexer::run, indexer),
+                Commands.runOnce(launcher::run, launcher)))
+        .onFalse(
+            Commands.sequence(
+                Commands.runOnce(launcher::stop, launcher),
+                Commands.runOnce(indexer::stop, indexer)));
+
+    // Left trigger: Run indexer reverse (unjam)
+    controller
+        .leftTrigger()
+        .onTrue(Commands.runOnce(indexer::runReverse, indexer))
+        .onFalse(Commands.runOnce(indexer::stop, indexer));
+
+    // Right trigger: Wiggle intake to shuffle pieces into indexer
+    controller
+        .rightTrigger()
+        .onTrue(Commands.runOnce(intake::startWiggle, intake))
+        .onFalse(Commands.runOnce(intake::stopWiggle, intake));
 
     // Switch to X pattern when X button is pressed
     controller.x().onTrue(Commands.runOnce(drive::stopWithX, drive));
