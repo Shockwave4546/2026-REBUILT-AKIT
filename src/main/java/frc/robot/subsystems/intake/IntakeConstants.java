@@ -10,8 +10,8 @@ package frc.robot.subsystems.intake;
 /**
  * Constants for the Intake subsystem.
  *
- * <p>Includes hardware configuration (CAN IDs, current limits) and control parameters for both
- * the pivot arm and roller motors.
+ * <p>Includes hardware configuration (CAN IDs, current limits) and control parameters for both the
+ * pivot arm and roller motors.
  */
 public final class IntakeConstants {
   // Motor CAN IDs

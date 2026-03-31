@@ -52,6 +52,10 @@ public class Intake extends SubsystemBase {
   private double innerRollerSpeed = IntakeConstants.kIntakeInnerRollerForwardSpeed;
   private double outerRollerSpeedMultiplier = IntakeConstants.kIntakeOuterRollerForwardSpeed;
 
+  // Wiggle state for shuffling pieces into indexer
+  private boolean isWiggling = false;
+  private boolean wiggleMovingUp = false;
+
   public Intake(IntakeIO io) {
     this.io = io;
 
@@ -99,6 +103,11 @@ public class Intake extends SubsystemBase {
 
     // Update roller control with unjam detection
     updateRollerControl();
+
+    // Update wiggle control if active
+    if (isWiggling) {
+      updateWiggleControl();
+    }
 
     // Publish telemetry
     SmartDashboard.putBoolean("Intake/Pivot Enabled", pivotEnabled);
@@ -224,6 +233,34 @@ public class Intake extends SubsystemBase {
     SmartDashboard.putBoolean("Intake/High Current", isHighCurrent);
   }
 
+  private void updateWiggleControl() {
+    if (!isWiggling) {
+      return;
+    }
+
+    // Halfway up is between deployed and retracted
+    double deployed = IntakeConstants.kIntakePivotDeployedPosition;
+    double retracted = IntakeConstants.kIntakePivotRetractedPosition;
+    double halfwayUp = deployed + ((retracted - deployed) / 1.7); // 59% of the way
+
+    // Check if we've reached current position
+    if (isAtTarget()) {
+      // Toggle direction
+      if (wiggleMovingUp) {
+        // Was moving up, now go down
+        setTargetPosition(deployed);
+        wiggleMovingUp = false;
+      } else {
+        // Was moving down, now go up
+        setTargetPosition(halfwayUp);
+        wiggleMovingUp = true;
+      }
+    }
+
+    SmartDashboard.putBoolean("Intake/Wiggling", true);
+    SmartDashboard.putString("Intake/Wiggle Direction", wiggleMovingUp ? "UP" : "DOWN");
+  }
+
   /** Set the target pivot position. */
   public void setTargetPosition(double positionRotations) {
     double clamped =
@@ -299,5 +336,32 @@ public class Intake extends SubsystemBase {
 
   public boolean isRollerRunning() {
     return rollerRunning;
+  }
+
+  /**
+   * Starts wiggling the intake arm between deployed and halfway up to shuffle pieces into indexer.
+   * This is useful for moving leftover game pieces into the shooter hopper.
+   *
+   * <p>The wiggle oscillates between: - Low: fully deployed (0.29 rotations) - High: halfway
+   * between deployed and retracted
+   */
+  public void startWiggle() {
+    isWiggling = true;
+    wiggleMovingUp = false;
+    // Start at low position
+    setTargetPosition(IntakeConstants.kIntakePivotDeployedPosition);
+  }
+
+  /** Stops the wiggle motion and returns to deployed position. */
+  public void stopWiggle() {
+    isWiggling = false;
+    setTargetPosition(IntakeConstants.kIntakePivotDeployedPosition);
+  }
+
+  /**
+   * @return true if wiggle is currently active
+   */
+  public boolean isWiggling() {
+    return isWiggling;
   }
 }
