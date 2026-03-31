@@ -18,15 +18,31 @@ public class VisionConstants {
       AprilTagFieldLayout.loadField(AprilTagFields.kDefaultField);
 
   // Camera names, must match names configured on coprocessor
-  public static String camera0Name = "camera_0";
-  public static String camera1Name = "camera_1";
+  public static String camera0Name = "FrontLeft";
+  public static String camera1Name = "FrontRight";
 
   // Robot to camera transforms
   // (Not used by Limelight, configure in web UI instead)
+  // Front Left Camera: 3 inches right, 10.5 inches back, 20.7 inches high
   public static Transform3d robotToCamera0 =
-      new Transform3d(0.2, 0.0, 0.2, new Rotation3d(0.0, -0.4, 0.0));
+      new Transform3d(
+          new edu.wpi.first.math.geometry.Translation3d(
+              edu.wpi.first.math.util.Units.inchesToMeters(3.0), // X: 3 inches right
+              edu.wpi.first.math.util.Units.inchesToMeters(-10.5), // Y: 10.5 inches back
+              edu.wpi.first.math.util.Units.inchesToMeters(20.7) // Z: 20.7 inches high
+              ),
+          new Rotation3d(0, 0, 0) // No rotation, facing horizon
+          );
+  // Front Right Camera: 10 inches right, 8.5 inches back, 18.7 inches high
   public static Transform3d robotToCamera1 =
-      new Transform3d(-0.2, 0.0, 0.2, new Rotation3d(0.0, -0.4, Math.PI));
+      new Transform3d(
+          new edu.wpi.first.math.geometry.Translation3d(
+              edu.wpi.first.math.util.Units.inchesToMeters(10), // X: 10 inches right
+              edu.wpi.first.math.util.Units.inchesToMeters(-8.5), // Y: 8.5 inches back
+              edu.wpi.first.math.util.Units.inchesToMeters(18.7) // Z: 18.7 inches high
+              ),
+          new Rotation3d(0, 0, Math.PI) // Rotated 180 degrees
+          );
 
   // Basic filtering thresholds
   public static double maxAmbiguity = 0.3;
