@@ -58,7 +58,8 @@ public final class Constants {
 
     // Thresholds for state detection
     public static final double kIntakePivotDeployedThreshold = kIntakePivotDeployedPosition + 0.05;
-    public static final double kIntakePivotRetractedThreshold = kIntakePivotRetractedPosition - 0.05;
+    public static final double kIntakePivotRetractedThreshold =
+        kIntakePivotRetractedPosition - 0.05;
 
     // Maximum position for roller to run
     public static final double kIntakeRollerMaxRunPosition = 0.5;
@@ -114,5 +115,22 @@ public final class Constants {
 
     // Tolerance
     public static final double kTolerance = 0.017;
+  }
+
+  // ============================================================================
+  // INDEXER SUBSYSTEM CONSTANTS
+  // ============================================================================
+  public static final class IndexerConstants {
+    // Motor CAN ID
+    public static final int kIndexerMotorCanId = 40;
+
+    // Motor inversion
+    public static final boolean kIndexerMotorInverted = false;
+
+    // Current limit
+    public static final int kIndexerMotorCurrentLimit = 20;
+
+    // Feeder voltage (open-loop, full bus voltage)
+    public static final double kIndexerVoltage = 12.0;
   }
 }
