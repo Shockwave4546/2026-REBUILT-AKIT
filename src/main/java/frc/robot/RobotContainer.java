@@ -10,15 +10,18 @@ package frc.robot;
 import static frc.robot.subsystems.vision.VisionConstants.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
+import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
 import frc.robot.commands.DriveCommands;
+import frc.robot.commands.VisionCommands;
 import frc.robot.subsystems.drive.Drive;
 import frc.robot.subsystems.drive.GyroIO;
 import frc.robot.subsystems.drive.GyroIOPigeon2;
@@ -44,6 +47,7 @@ import frc.robot.subsystems.vision.Vision;
 import frc.robot.subsystems.vision.VisionIO;
 import frc.robot.subsystems.vision.VisionIOPhotonVision;
 import frc.robot.subsystems.vision.VisionIOPhotonVisionSim;
+import org.littletonrobotics.junction.Logger;
 import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 
 /**
@@ -133,8 +137,34 @@ public class RobotContainer {
         break;
     }
 
+    // Register named commands for PathPlanner BEFORE building auto chooser
+    // Use Suppliers to create new command instances each time they're called
+    NamedCommands.registerCommand(
+        "Spin 360", Commands.defer(() -> VisionCommands.spin360(drive), java.util.Set.of(drive)));
+    NamedCommands.registerCommand(
+        "Align to Hub",
+        Commands.defer(() -> VisionCommands.alignToHub(drive), java.util.Set.of(drive)));
+    // Distance enforcer with test range of 3.5-3.6m
+    NamedCommands.registerCommand(
+        "Enforce Distance",
+        Commands.defer(
+            () -> VisionCommands.enforceDistance(drive, 3.5, 3.6), java.util.Set.of(drive)));
+
+    // Log that commands are registered
+    System.err.println("[RobotContainer] ===== Named Commands Registered =====");
+    System.err.println("[RobotContainer] - Spin 360");
+    System.err.println("[RobotContainer] - Align to Hub");
+    System.err.println("[RobotContainer] - Enforce Distance");
+    System.err.flush();
+
     // Set up auto routines
     autoChooser = new LoggedDashboardChooser<>("Auto Choices", AutoBuilder.buildAutoChooser());
+    Shuffleboard.getTab("Main")
+        .add("Auto", autoChooser.getSendableChooser())
+        .withSize(2, 1)
+        .withPosition(0, 0);
+
+    Logger.recordOutput("RobotContainer/CommandsRegistered", true);
 
     // Set up SysId routines
     autoChooser.addOption(

@@ -282,7 +282,8 @@ public class Drive extends SubsystemBase {
   /** Returns the current odometry pose. */
   @AutoLogOutput(key = "Odometry/Robot")
   public Pose2d getPose() {
-    return poseEstimator.getEstimatedPosition();
+    Pose2d pose = poseEstimator.getEstimatedPosition();
+    return pose != null ? pose : Pose2d.kZero;
   }
 
   /** Returns the current odometry rotation. */
@@ -292,7 +293,14 @@ public class Drive extends SubsystemBase {
 
   /** Resets the current odometry pose. */
   public void setPose(Pose2d pose) {
-    poseEstimator.resetPosition(rawGyroRotation, getModulePositions(), pose);
+    try {
+      if (poseEstimator != null && pose != null) {
+        poseEstimator.resetPosition(rawGyroRotation, getModulePositions(), pose);
+      }
+    } catch (NullPointerException e) {
+      // Ignore - odometry not yet initialized (can happen at startup in sim)
+      Logger.recordOutput("Drive/SetPoseError", "Failed to reset pose: " + e.getMessage());
+    }
   }
 
   /** Adds a new timestamped vision measurement. */
