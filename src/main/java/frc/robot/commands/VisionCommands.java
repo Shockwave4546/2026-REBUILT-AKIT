@@ -7,6 +7,7 @@
 
 package frc.robot.commands;
 
+import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.ProfiledPIDController;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Translation2d;
@@ -18,20 +19,18 @@ import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import frc.robot.FieldConstants;
+import frc.robot.ShootingConstants;
 import frc.robot.subsystems.drive.Drive;
+import frc.robot.subsystems.indexer.Indexer;
+import frc.robot.subsystems.launcher.Launcher;
 import org.littletonrobotics.junction.Logger;
 
 public class VisionCommands {
-  private static final double ANGLE_KP = 5.0;
-  private static final double ANGLE_KD = 0.4;
+  private static final double ANGLE_KP = 3.0;
+  private static final double ANGLE_KD = 0.5;
   private static final double ANGLE_MAX_VELOCITY = 8.0;
   private static final double ANGLE_MAX_ACCELERATION = 20.0;
   private static final double ANGLE_TOLERANCE = Units.degreesToRadians(2.0);
-
-  // Distance enforcer constants
-  private static final double DISTANCE_MIN = 1.5; // Test range minimum (meters)
-  private static final double DISTANCE_MAX = 3.5; // Test range maximum (meters)
-  // For production: use 2.0 and 4.0
 
   private VisionCommands() {}
 
@@ -203,6 +202,7 @@ public class VisionCommands {
    */
   public static Command enforceDistance(Drive drive, double minDistance, double maxDistance) {
     // PID controller for distance (linear velocity control)
+    @SuppressWarnings("resource")
     var pidController = new edu.wpi.first.math.controller.PIDController(2.0, 0.0, 0.1);
     pidController.setTolerance(0.05); // 5cm tolerance
 
@@ -304,6 +304,29 @@ public class VisionCommands {
   }
 
   /**
+   * Calculates and returns the required flywheel RPM for the current distance from the hub. This
+   * can be used by shooting commands to automatically set the correct speed.
+   *
+   * @param drive The drive subsystem (for getting current pose)
+   * @return The required flywheel RPM based on current distance
+   */
+  public static double getFlywheelRPMForCurrentDistance(Drive drive) {
+    Pose2d robotPose = drive.getPose();
+    boolean isRed = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red;
+    Translation2d hubTarget =
+        isRed ? FieldConstants.Hub.oppCenterPoint : FieldConstants.Hub.centerPoint;
+
+    double dx = hubTarget.getX() - robotPose.getX();
+    double dy = hubTarget.getY() - robotPose.getY();
+    double currentDistance = Math.hypot(dx, dy);
+
+    double requiredRPM = ShootingConstants.getFlywheelRPM(currentDistance);
+
+    // Logging is handled by the caller to avoid spam
+    return requiredRPM;
+  }
+
+  /**
    * Aligns the robot and shoots at the hub. Combines vision alignment with shooter control.
    *
    * @param drive The drive subsystem
@@ -312,5 +335,227 @@ public class VisionCommands {
    */
   public static Command alignAndShoot(Drive drive, Command shootCommand) {
     return Commands.sequence(alignToHub(drive), shootCommand);
+  }
+
+  /** TEST VERSION: Simple setup and shoot that just prints messages. */
+  public static Command setupAndShootTest(Drive drive, Launcher launcher, Indexer indexer) {
+    System.out.println("\n>>> [SETUP_AND_SHOOT_TEST FACTORY] Test factory method called <<<");
+    System.out.flush();
+    System.err.println("\n>>> [SETUP_AND_SHOOT_TEST FACTORY] Test factory method called <<<");
+    System.err.flush();
+
+    return Commands.waitSeconds(3.0)
+        .beforeStarting(
+            () -> {
+              System.out.println("\n████ [SETUP_SHOOT_TEST] TEST COMMAND STARTING ████");
+              System.out.flush();
+              System.err.println("\n████ [SETUP_SHOOT_TEST] TEST COMMAND STARTING ████");
+              System.err.flush();
+            })
+        .finallyDo(
+            () -> {
+              System.out.println("\n████ [SETUP_SHOOT_TEST] TEST COMMAND ENDING ████");
+              System.out.flush();
+              System.err.println("\n████ [SETUP_SHOOT_TEST] TEST COMMAND ENDING ████");
+              System.err.flush();
+            })
+        .withName("SetupAndShootTest");
+  }
+
+  /**
+   * Complete setup and shoot command. This command:
+   *
+   * <ol>
+   *   <li>Aligns to hub and enforces distance simultaneously
+   *   <li>Starts the shooter and spins up to calculated RPM
+   *   <li>Continuously checks safety conditions before indexing:
+   *       <ul>
+   *         <li>Robot is pointing at hub (within angle tolerance)
+   *         <li>Robot is within valid shooting distance
+   *         <li>Shooter is at target RPM (within tolerance)
+   *       </ul>
+   *   <li>If all checks pass, runs indexer to feed and shoot
+   *   <li>If any check fails, stops indexer immediately (safety lockout)
+   * </ol>
+   *
+   * <p>The command will timeout after 10 seconds if not interrupted.
+   *
+   * @param drive The drive subsystem
+   * @param launcher The launcher subsystem (flywheel control)
+   * @param indexer The indexer subsystem (feeding control)
+   * @return A command that sets up position and shoots with safety checks
+   */
+  public static Command setupAndShoot(Drive drive, Launcher launcher, Indexer indexer) {
+    System.out.println("\n>>> [SETUP_AND_SHOOT FACTORY] setupAndShoot() factory method called <<<");
+    System.out.flush();
+
+    // Create PID controllers ONCE (not on every periodic call)
+    final ProfiledPIDController angleController =
+        new ProfiledPIDController(
+            ANGLE_KP,
+            0.0,
+            ANGLE_KD,
+            new TrapezoidProfile.Constraints(ANGLE_MAX_VELOCITY, ANGLE_MAX_ACCELERATION));
+    angleController.enableContinuousInput(-Math.PI, Math.PI);
+    angleController.setTolerance(ANGLE_TOLERANCE);
+
+    @SuppressWarnings("resource")
+    final PIDController distanceController = new PIDController(1.0, 0.0, 0.0);
+    distanceController.setTolerance(0.05); // 5cm tolerance
+
+    int[] loopCount = {0};
+    boolean[] isFiring = {false};
+    boolean[] initialized = {false};
+
+    return Commands.run(
+            () -> {
+              // Initialize on first run
+              if (!initialized[0]) {
+                angleController.reset(drive.getPose().getRotation().getRadians());
+                distanceController.reset();
+                loopCount[0] = 0;
+                isFiring[0] = false;
+                initialized[0] = true;
+                System.out.println(
+                    "\n\n████████████████████████████████████████████████████████████");
+                System.out.println("████ [SETUP_SHOOT] ===== SETUP AND SHOOT STARTED ===== ████");
+                System.out.println(
+                    "████████████████████████████████████████████████████████████\n");
+                System.out.flush();
+              }
+
+              loopCount[0]++;
+
+              // Print first real iteration message
+              if (loopCount[0] == 1) {
+                System.out.println(
+                    "\n>>> [SETUP_SHOOT] MAIN LOOP STARTED - Beginning alignment and distance control <<<\n");
+                System.out.flush();
+              }
+
+              // Get current robot state
+              Pose2d robotPose = drive.getPose();
+              boolean isRed = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red;
+              Translation2d hubTarget =
+                  isRed ? FieldConstants.Hub.oppCenterPoint : FieldConstants.Hub.centerPoint;
+
+              // Calculate distance and angle to hub
+              double dx = hubTarget.getX() - robotPose.getX();
+              double dy = hubTarget.getY() - robotPose.getY();
+              double distanceToHub = Math.hypot(dx, dy);
+              double headingToHub = Math.atan2(dy, dx);
+              double robotHeading = robotPose.getRotation().getRadians();
+
+              // Robot back should point AT the hub (same as alignToHub)
+              double desiredHeading = headingToHub;
+
+              // Get shooting parameters
+              double targetRPM = getFlywheelRPMForCurrentDistance(drive);
+              double[] distanceRange = ShootingConstants.getDistanceRange();
+              double minDistance = distanceRange[0];
+              double maxDistance = distanceRange[1];
+              double targetDistance = (minDistance + maxDistance) / 2.0;
+
+              // Calculate angle control - pass raw values like alignToHub does
+              // enableContinuousInput handles wrapping internally; do NOT pre-compute error
+              double angularVelocity = angleController.calculate(robotHeading, desiredHeading);
+
+              // For safety check: get the error the controller computed (handles wrapping)
+              double angleDifference = angleController.getPositionError();
+
+              // Calculate distance control (negate: PID positive error = too far = move toward hub)
+              double distancePIDOutput =
+                  distanceController.calculate(distanceToHub, targetDistance);
+              double linearVelocity = -distancePIDOutput;
+
+              // Convert field-relative linear velocity to robot-relative chassis speeds
+              ChassisSpeeds speeds =
+                  ChassisSpeeds.fromFieldRelativeSpeeds(
+                      Math.cos(headingToHub) * linearVelocity,
+                      Math.sin(headingToHub) * linearVelocity,
+                      angularVelocity,
+                      drive.getRotation());
+
+              // === SAFETY CHECK: Shooter Status ===
+              boolean isAtTargetRPM = launcher.isAtTargetRpm();
+              boolean isWithinDistance =
+                  distanceToHub >= minDistance && distanceToHub <= maxDistance;
+              boolean isPointingAtHub = Math.abs(angleDifference) <= ANGLE_TOLERANCE;
+
+              // === DETERMINE PHASE ===
+              // If not yet spinning up, start spinner
+              if (!launcher.isSpinningUp() && !launcher.isRunning()) {
+                launcher.setTargetRpm(targetRPM);
+                launcher.spinUp();
+              }
+
+              // === INDEX SAFETY GATE ===
+              // Only allow indexer to run if ALL safety checks pass
+              boolean shouldFire = isPointingAtHub && isWithinDistance && isAtTargetRPM;
+              if (shouldFire) {
+                // All good - transition to full run mode and feed
+                if (!launcher.isRunning()) {
+                  launcher.run();
+                }
+                indexer.run();
+                if (!isFiring[0]) {
+                  System.err.println(
+                      "\n[SETUP_SHOOT] ==================== FIRING STARTED ====================\n");
+                  System.err.flush();
+                  isFiring[0] = true;
+                }
+              } else {
+                // Safety lockout - stop indexing immediately
+                indexer.stop();
+                if (isFiring[0]) {
+                  System.err.println(
+                      "\n[SETUP_SHOOT] ==================== FIRING STOPPED ====================\n");
+                  System.err.flush();
+                  isFiring[0] = false;
+                }
+              }
+
+              // Detailed debug logging (every 10 iterations for minimal spam)
+              if (loopCount[0] % 10 == 0 || loopCount[0] <= 3) {
+                String debugLog =
+                    String.format(
+                        "[SETUP_SHOOT] Iter %3d | Angle:%s Dist:%s RPM:%s Fire:%s | "
+                            + "Angle:%.1f° Dist:%.2fm RPM:%.0f/%.0f Idx:%d",
+                        loopCount[0],
+                        (isPointingAtHub ? "Y" : "N"),
+                        (isWithinDistance ? "Y" : "N"),
+                        (isAtTargetRPM ? "Y" : "N"),
+                        (isFiring[0] ? "YES" : "no "),
+                        Units.radiansToDegrees(angleDifference),
+                        distanceToHub,
+                        launcher.getShooterRpm(),
+                        targetRPM,
+                        (indexer.isRunning() ? 1 : 0));
+                System.err.println(debugLog);
+                System.err.flush();
+              }
+
+              // Apply calculated velocities
+              drive.runVelocity(speeds);
+            },
+            drive,
+            launcher,
+            indexer)
+        .withTimeout(10.0)
+        .finallyDo(
+            () -> {
+              if (isFiring[0]) {
+                System.err.println(
+                    "\n[SETUP_SHOOT] ==================== SETUP AND SHOOT COMPLETE ====================\n");
+              } else {
+                System.err.println(
+                    "\n[SETUP_SHOOT] ==================== SETUP AND SHOOT ABORTED ====================\n");
+              }
+              System.err.printf("[SETUP_SHOOT] Total iterations: %d%n", loopCount[0]);
+              System.err.flush();
+              drive.runVelocity(new ChassisSpeeds());
+              launcher.stop();
+              indexer.stop();
+            });
   }
 }

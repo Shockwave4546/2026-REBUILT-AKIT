@@ -59,7 +59,10 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   // Subsystems
   private final Drive drive;
+
+  @SuppressWarnings("unused") // Used internally by AdvantageKit Logger
   private final Vision vision;
+
   private final Intake intake;
   private final Indexer indexer;
   private final Launcher launcher;
@@ -149,12 +152,19 @@ public class RobotContainer {
         "Enforce Distance",
         Commands.defer(
             () -> VisionCommands.enforceDistance(drive, 3.5, 3.6), java.util.Set.of(drive)));
+    // Setup and shoot: aligns, enforces distance, and shoots with safety checks
+    NamedCommands.registerCommand(
+        "Setup and Shoot",
+        Commands.defer(
+            () -> VisionCommands.setupAndShoot(drive, launcher, indexer),
+            java.util.Set.of(drive, launcher, indexer)));
 
     // Log that commands are registered
     System.err.println("[RobotContainer] ===== Named Commands Registered =====");
     System.err.println("[RobotContainer] - Spin 360");
     System.err.println("[RobotContainer] - Align to Hub");
     System.err.println("[RobotContainer] - Enforce Distance");
+    System.err.println("[RobotContainer] - Setup and Shoot");
     System.err.flush();
 
     // Set up auto routines

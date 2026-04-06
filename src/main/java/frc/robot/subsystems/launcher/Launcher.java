@@ -182,4 +182,18 @@ public class Launcher extends SubsystemBase {
   public boolean isRunning() {
     return isRunning;
   }
+
+  /**
+   * @return true if launcher is currently spinning up (running but not feeding).
+   */
+  public boolean isSpinningUp() {
+    return isSpinningUp;
+  }
+
+  /**
+   * @return the current target RPM for the shooter.
+   */
+  public double getTargetRpm() {
+    return targetRpm;
+  }
 }
