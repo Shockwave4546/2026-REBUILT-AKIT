@@ -279,6 +279,19 @@ public class Drive extends SubsystemBase {
     return output;
   }
 
+  /**
+   * Get a specific module for tuning purposes.
+   *
+   * @param index Module index: 0=Front-Left, 1=Front-Right, 2=Back-Left, 3=Back-Right
+   * @return The requested module
+   */
+  public Module getModule(int index) {
+    if (index < 0 || index >= 4) {
+      throw new IllegalArgumentException("Module index must be 0-3, got: " + index);
+    }
+    return modules[index];
+  }
+
   /** Returns the current odometry pose. */
   @AutoLogOutput(key = "Odometry/Robot")
   public Pose2d getPose() {
