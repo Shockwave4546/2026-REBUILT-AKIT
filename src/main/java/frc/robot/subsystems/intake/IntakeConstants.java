@@ -28,10 +28,12 @@ public final class IntakeConstants {
   public static final boolean kIntakePivotEncoderInverted = false;
 
   // Position limits (in rotations)
+  // TODO: Verify mechanical deployment positions work with new drivetrain geometry
   public static final double kIntakePivotMinPosition = 0.25; // deployed, hard limit
   public static final double kIntakePivotMaxPosition = 0.66; // retracted, hard limit
 
   // Named setpoints
+  // TODO: Calibrate intake pivot positions for optimal piece intake performance
   public static final double kIntakePivotDeployedPosition = 0.29;
   public static final double kIntakePivotPartiallyDeployedPosition = 0.367;
   public static final double kIntakePivotWeightlessPosition = 0.58;

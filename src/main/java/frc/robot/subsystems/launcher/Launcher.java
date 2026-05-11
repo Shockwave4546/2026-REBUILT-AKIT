@@ -41,7 +41,7 @@ public class Launcher extends SubsystemBase {
   private boolean isFeederReversing = false;
 
   private double targetRpm = LauncherConstants.kShooterTargetRpm;
-  // TODO: These will be used for short/long shot commands
+  // TODO: Implement short/long shot commands using kShooterShortRpm and kShooterLongRpm constants
 
   public Launcher(LauncherIO io) {
     this.io = io;

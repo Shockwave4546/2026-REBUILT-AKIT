@@ -16,6 +16,10 @@ public class ShootingConstants {
    *
    * <p>Add more entries as you characterize your shooter at different distances. The system will
    * interpolate between values.
+   *
+   * <p>TODO: CRITICAL - Shoot from 2.0m, 2.5m, 3.0m, 3.5m, 4.0m on real robot and record actual RPM
+   * needed. Replace these test values with measured data from real shooter performance testing.
+   * Current values are estimates and will NOT score consistently until calibrated.
    */
   private static final double[][] RPM_LOOKUP_TABLE = {
     {2.0, 2500}, // 2 meters: 2700 RPM (minimum distance)

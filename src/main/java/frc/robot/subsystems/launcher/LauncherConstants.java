@@ -37,6 +37,9 @@ public final class LauncherConstants {
   public static final double kShooterLongRpm = 4500.0; // Tunable during matches
 
   // Shooter PID/FF coefficients (RoboRIO-side control)
+  // TODO: Characterize shooter motor via system identification to determine accurate kS, kV, kA
+  // values
+  // TODO: Tune kP and kD for stable velocity control at all RPM setpoints (2000-4500)
   public static final double kP_Shooter = 0.001;
   public static final double kI_Shooter = 0.0;
   public static final double kD_Shooter = 0.0;
@@ -45,5 +48,6 @@ public final class LauncherConstants {
   public static final double kA_Shooter = 0.0;
 
   // Tolerance for "at target RPM" (RPM)
+  // TODO: Validate RPM tolerance is reasonable after real shooter testing
   public static final double kRpmTolerance = 100.0;
 }

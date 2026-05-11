@@ -26,6 +26,7 @@ import frc.robot.subsystems.launcher.Launcher;
 import org.littletonrobotics.junction.Logger;
 
 public class VisionCommands {
+  // TODO: Tune angle PID gains on real robot. Currently P=3.0, D=0.5 from sim tuning.
   private static final double ANGLE_KP = 3.0;
   private static final double ANGLE_KD = 0.5;
   private static final double ANGLE_MAX_VELOCITY = 8.0;
@@ -400,6 +401,7 @@ public class VisionCommands {
     angleController.setTolerance(ANGLE_TOLERANCE);
 
     @SuppressWarnings("resource")
+    // TODO: Tune distance PID gains on real robot. Currently P=1.0, D=0.0 from sim tuning.
     final PIDController distanceController = new PIDController(1.0, 0.0, 0.0);
     distanceController.setTolerance(0.05); // 5cm tolerance
 
@@ -484,6 +486,8 @@ public class VisionCommands {
 
               // === DETERMINE PHASE ===
               // If not yet spinning up, start spinner
+              // TODO: Verify RPM lookup table is calibrated for real shooter at all distances
+              // 2.0-4.0m
               if (!launcher.isSpinningUp() && !launcher.isRunning()) {
                 launcher.setTargetRpm(targetRPM);
                 launcher.spinUp();

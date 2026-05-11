@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>AKit 2026 — Controller Layout</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d0d0d;
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      color: #e8e8e8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 48px;
+      min-height: 100vh;
+    }
+    h1 {
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 12px;
+      color: #666;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 36px;
+    }
+
+    /* ── Controller SVG wrapper ── */
+    .controller-wrap {
+      position: relative;
+      width: 700px;
+    }
+
+    /* ── Legend cards ── */
+    .legend {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 32px;
+      width: 700px;
+    }
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .badge {
+      flex-shrink: 0;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+    }
+    .badge.rect {
+      border-radius: 8px;
+      font-size: 11px;
+      width: 44px;
+    }
+    .card-text strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+    }
+    .card-text span {
+      font-size: 11.5px;
+      color: #888;
+      line-height: 1.4;
+    }
+
+    /* Button colours matching Xbox */
+    .col-a  { background:#1a7c3e; color:#fff; }
+    .col-b  { background:#a0281c; color:#fff; }
+    .col-x  { background:#1a4fa0; color:#fff; }
+    .col-y  { background:#8c7000; color:#fff; }
+    .col-lb { background:#444; color:#ddd; }
+    .col-rb { background:#444; color:#ddd; }
+    .col-lt { background:#5a3a00; color:#ddd; }
+    .col-rt { background:#5a3a00; color:#ddd; }
+    .col-ls { background:#2a5a6a; color:#ddd; }
+    .col-rs { background:#2a5a6a; color:#ddd; }
+
+    footer {
+      margin-top: 40px;
+      font-size: 11px;
+      color: #444;
+      letter-spacing: 0.08em;
+    }
+  </style>
+</head>
+<body>
+
+<h1>AKit 2026 — Controller Layout</h1>
+<p class="subtitle">Xbox Controller · Port 0 · Teleop Bindings</p>
+
+<div class="controller-wrap">
+<svg viewBox="0 0 700 360" xmlns="http://www.w3.org/2000/svg" width="700" height="360">
+  <defs>
+    <!-- Controller body gradient -->
+    <radialGradient id="bodyGrad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#3a3a3a"/>
+      <stop offset="100%" stop-color="#1a1a1a"/>
+    </radialGradient>
+    <radialGradient id="gripL" cx="30%" cy="60%" r="70%">
+      <stop offset="0%" stop-color="#2e2e2e"/>
+      <stop offset="100%" stop-color="#111"/>
+    </radialGradient>
+    <radialGradient id="gripR" cx="70%" cy="60%" r="70%">
+      <stop offset="0%" stop-color="#2e2e2e"/>
+      <stop offset="100%" stop-color="#111"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- ══ Controller body ══ -->
+  <!-- Main body -->
+  <path d="
+    M 175 130
+    Q 175 80 245 75
+    L 455 75
+    Q 525 80 525 130
+    L 545 240
+    Q 565 310 530 330
+    Q 490 350 455 320
+    L 415 290
+    L 285 290
+    L 245 320
+    Q 210 350 170 330
+    Q 135 310 155 240
+    Z
+  " fill="url(#bodyGrad)" stroke="#555" stroke-width="1.5"/>
+
+  <!-- Left grip -->
+  <path d="M 175 200 Q 155 220 150 260 Q 145 310 170 330 Q 195 348 215 325 L 245 290 L 230 230 Z"
+        fill="url(#gripL)" stroke="#444" stroke-width="1"/>
+  <!-- Right grip -->
+  <path d="M 525 200 Q 545 220 550 260 Q 555 310 530 330 Q 505 348 485 325 L 455 290 L 470 230 Z"
+        fill="url(#gripR)" stroke="#444" stroke-width="1"/>
+
+  <!-- Top bumper ledge -->
+  <rect x="190" y="75" width="140" height="18" rx="8" fill="#2a2a2a" stroke="#555" stroke-width="1"/>
+  <rect x="370" y="75" width="140" height="18" rx="8" fill="#2a2a2a" stroke="#555" stroke-width="1"/>
+
+  <!-- Trigger wells -->
+  <ellipse cx="240" cy="80" rx="48" ry="14" fill="#222" stroke="#444" stroke-width="1"/>
+  <ellipse cx="460" cy="80" rx="48" ry="14" fill="#222" stroke="#444" stroke-width="1"/>
+
+  <!-- ══ LEFT TRIGGER (LT) ══ -->
+  <ellipse cx="240" cy="68" rx="38" ry="18" fill="#5a3a00" stroke="#f0a000" stroke-width="1.5" filter="url(#glow)"/>
+  <text x="240" y="73" text-anchor="middle" font-size="11" font-weight="700" fill="#f0a000">LT</text>
+
+  <!-- LT label callout -->
+  <line x1="202" y1="68" x2="100" y2="40" stroke="#f0a000" stroke-width="1" stroke-dasharray="4 3" opacity="0.7"/>
+  <text x="96" y="37" text-anchor="end" font-size="11" fill="#f0a000" font-weight="600">Indexer Reverse</text>
+  <text x="96" y="50" text-anchor="end" font-size="10" fill="#888">(hold to unjam)</text>
+
+  <!-- ══ RIGHT TRIGGER (RT) ══ -->
+  <ellipse cx="460" cy="68" rx="38" ry="18" fill="#5a3a00" stroke="#f0a000" stroke-width="1.5" filter="url(#glow)"/>
+  <text x="460" y="73" text-anchor="middle" font-size="11" font-weight="700" fill="#f0a000">RT</text>
+
+  <!-- RT label callout -->
+  <line x1="498" y1="68" x2="600" y2="40" stroke="#f0a000" stroke-width="1" stroke-dasharray="4 3" opacity="0.7"/>
+  <text x="604" y="37" text-anchor="start" font-size="11" fill="#f0a000" font-weight="600">Wiggle Intake</text>
+  <text x="604" y="50" text-anchor="start" font-size="10" fill="#888">(hold to shuffle pieces)</text>
+
+  <!-- ══ LEFT BUMPER (LB) ══ -->
+  <rect x="194" y="76" width="136" height="16" rx="7" fill="#444" stroke="#bbb" stroke-width="1.5"/>
+  <text x="262" y="88" text-anchor="middle" font-size="10" font-weight="700" fill="#ddd">LB</text>
+
+  <!-- LB label callout -->
+  <line x1="200" y1="84" x2="100" y2="68" stroke="#bbb" stroke-width="1" stroke-dasharray="4 3" opacity="0.7"/>
+  <text x="96" y="65" text-anchor="end" font-size="11" fill="#ccc" font-weight="600">Intake Reverse</text>
+  <text x="96" y="78" text-anchor="end" font-size="10" fill="#888">(hold to unjam)</text>
+
+  <!-- ══ RIGHT BUMPER (RB) ══ -->
+  <rect x="370" y="76" width="136" height="16" rx="7" fill="#444" stroke="#bbb" stroke-width="1.5"/>
+  <text x="438" y="88" text-anchor="middle" font-size="10" font-weight="700" fill="#ddd">RB</text>
+
+  <!-- RB label callout -->
+  <line x1="502" y1="84" x2="600" y2="68" stroke="#bbb" stroke-width="1" stroke-dasharray="4 3" opacity="0.7"/>
+  <text x="604" y="65" text-anchor="start" font-size="11" fill="#ccc" font-weight="600">Shoot</text>
+  <text x="604" y="78" text-anchor="start" font-size="10" fill="#888">(spin up → index → fire)</text>
+
+  <!-- ══ LEFT STICK ══ -->
+  <!-- Stick housing -->
+  <circle cx="250" cy="195" r="38" fill="#111" stroke="#3a3a3a" stroke-width="2"/>
+  <!-- Stick cap -->
+  <circle cx="250" cy="195" r="26" fill="url(#gripL)" stroke="#555" stroke-width="1.5" filter="url(#glow)"/>
+  <circle cx="250" cy="195" r="16" fill="#1e4a5a" stroke="#3fafd0" stroke-width="1.5"/>
+  <!-- Crosshair arrows hint -->
+  <line x1="250" y1="184" x2="250" y2="206" stroke="#3fafd0" stroke-width="1.5" opacity="0.6"/>
+  <line x1="239" y1="195" x2="261" y2="195" stroke="#3fafd0" stroke-width="1.5" opacity="0.6"/>
+  <polygon points="250,181 246,187 254,187" fill="#3fafd0" opacity="0.7"/>
+  <polygon points="250,209 246,203 254,203" fill="#3fafd0" opacity="0.7"/>
+  <polygon points="236,195 242,191 242,199" fill="#3fafd0" opacity="0.7"/>
+  <polygon points="264,195 258,191 258,199" fill="#3fafd0" opacity="0.7"/>
+
+  <text x="250" y="242" text-anchor="middle" font-size="10" fill="#3fafd0" font-weight="600">LEFT STICK</text>
+
+  <!-- LS callout -->
+  <line x1="216" y1="195" x2="100" y2="165" stroke="#3fafd0" stroke-width="1" stroke-dasharray="4 3" opacity="0.7"/>
+  <text x="96" y="155" text-anchor="end" font-size="11" fill="#3fafd0" font-weight="600">Drive (Translate)</text>
+  <text x="96" y="168" text-anchor="end" font-size="10" fill="#888">Field-relative X / Y</text>
+
+  <!-- ══ RIGHT STICK ══ -->
+  <circle cx="415" cy="240" r="38" fill="#111" stroke="#3a3a3a" stroke-width="2"/>
+  <circle cx="415" cy="240" r="26" fill="url(#gripR)" stroke="#555" stroke-width="1.5" filter="url(#glow)"/>
+  <circle cx="415" cy="240" r="16" fill="#1e4a5a" stroke="#3fafd0" stroke-width="1.5"/>
+  <!-- Rotation arrows hint -->
+  <path d="M 408 230 A 10 10 0 1 1 422 230" stroke="#3fafd0" stroke-width="1.5" fill="none" opacity="0.7"/>
+  <polygon points="422,229 418,233 426,234" fill="#3fafd0" opacity="0.7"/>
+
+  <text x="415" y="287" text-anchor="middle" font-size="10" fill="#3fafd0" font-weight="600">RIGHT STICK</text>
+
+  <!-- RS callout -->
+  <line x1="451" y1="240" x2="604" y2="200" stroke="#3fafd0" stroke-width="1" stroke-dasharray="4 3" opacity="0.7"/>
+  <text x="608" y="195" text-anchor="start" font-size="11" fill="#3fafd0" font-weight="600">Rotate (Yaw)</text>
+  <text x="608" y="208" text-anchor="start" font-size="10" fill="#888">Field-relative heading</text>
+
+  <!-- ══ FACE BUTTONS ══ -->
+  <!-- Cluster centre -->
+  <!-- A button (bottom - green) -->
+  <circle cx="468" cy="185" r="14" fill="#1a7c3e" stroke="#2ecc71" stroke-width="1.5" filter="url(#glow)"/>
+  <text x="468" y="190" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">A</text>
+
+  <!-- B button (right - red) -->
+  <circle cx="494" cy="160" r="14" fill="#a0281c" stroke="#e74c3c" stroke-width="1.5" filter="url(#glow)"/>
+  <text x="494" y="165" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">B</text>
+
+  <!-- X button (left - blue) -->
+  <circle cx="442" cy="160" r="14" fill="#1a4fa0" stroke="#3498db" stroke-width="1.5" filter="url(#glow)"/>
+  <text x="442" y="165" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">X</text>
+
+  <!-- Y button (top - yellow) -->
+  <circle cx="468" cy="135" r="14" fill="#8c7000" stroke="#f1c40f" stroke-width="1.5" filter="url(#glow)"/>
+  <text x="468" y="140" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">Y</text>
+
+  <!-- A callout -->
+  <line x1="468" y1="199" x2="510" y2="310" stroke="#2ecc71" stroke-width="1" stroke-dasharray="4 3" opacity="0.8"/>
+  <text x="514" y="308" text-anchor="start" font-size="11" fill="#2ecc71" font-weight="600">Deploy &amp; Run Intake</text>
+  <text x="514" y="321" text-anchor="start" font-size="10" fill="#888">(hold = pivot down + rollers on)</text>
+
+  <!-- B callout -->
+  <line x1="508" y1="160" x2="604" y2="130" stroke="#e74c3c" stroke-width="1" stroke-dasharray="4 3" opacity="0.8"/>
+  <text x="608" y="127" text-anchor="start" font-size="11" fill="#e74c3c" font-weight="600">Reset Gyro</text>
+  <text x="608" y="140" text-anchor="start" font-size="10" fill="#888">(zero heading)</text>
+
+  <!-- X callout -->
+  <line x1="428" y1="160" x2="100" y2="110" stroke="#3498db" stroke-width="1" stroke-dasharray="4 3" opacity="0.8"/>
+  <text x="96" y="107" text-anchor="end" font-size="11" fill="#3498db" font-weight="600">X-Lock Drive</text>
+  <text x="96" y="120" text-anchor="end" font-size="10" fill="#888">(stop with X pattern)</text>
+
+  <!-- Y callout -->
+  <line x1="468" y1="121" x2="604" y2="100" stroke="#f1c40f" stroke-width="1" stroke-dasharray="4 3" opacity="0.8"/>
+  <text x="608" y="97" text-anchor="start" font-size="11" fill="#f1c40f" font-weight="600">Retract Intake</text>
+  <text x="608" y="110" text-anchor="start" font-size="10" fill="#888">(hold = pivot up)</text>
+
+  <!-- ══ D-Pad placeholder (unused) ══ -->
+  <g opacity="0.25">
+    <rect x="305" y="153" width="14" height="14" rx="2" fill="#333" stroke="#555"/>
+    <rect x="305" y="167" width="14" height="14" rx="2" fill="#333" stroke="#555"/>
+    <rect x="291" y="167" width="14" height="14" rx="2" fill="#333" stroke="#555"/>
+    <rect x="319" y="167" width="14" height="14" rx="2" fill="#333" stroke="#555"/>
+    <text x="312" y="200" text-anchor="middle" font-size="9" fill="#555">D-PAD</text>
+    <text x="312" y="210" text-anchor="middle" font-size="9" fill="#555">(unused)</text>
+  </g>
+
+  <!-- ══ Start/Select placeholder (unused) ══ -->
+  <g opacity="0.25">
+    <rect x="334" y="130" width="32" height="12" rx="4" fill="#222" stroke="#444"/>
+    <text x="350" y="140" text-anchor="middle" font-size="8" fill="#555">START</text>
+    <rect x="334" y="147" width="32" height="12" rx="4" fill="#222" stroke="#444"/>
+    <text x="350" y="157" text-anchor="middle" font-size="8" fill="#555">BACK</text>
+    <text x="350" y="175" text-anchor="middle" font-size="9" fill="#555">(unused)</text>
+  </g>
+</svg>
+</div>
+
+<!-- ── Legend cards ── -->
+<div class="legend">
+
+  <div class="card">
+    <div class="badge col-ls">LS</div>
+    <div class="card-text">
+      <strong>Left Stick — Drive (Translate)</strong>
+      <span>Field-relative X/Y translation. Push forward/backward/strafe.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge col-rs">RS</div>
+    <div class="card-text">
+      <strong>Right Stick X — Rotate (Yaw)</strong>
+      <span>Field-relative heading rotation. Twist left/right.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge col-a">A</div>
+    <div class="card-text">
+      <strong>A — Deploy &amp; Run Intake</strong>
+      <span>Hold: pivots intake down and spins rollers on. Release: stops.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge col-y">Y</div>
+    <div class="card-text">
+      <strong>Y — Retract Intake</strong>
+      <span>Hold: pivots intake up to retracted position. Release: stops pivot.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge col-b">B</div>
+    <div class="card-text">
+      <strong>B — Reset Gyro</strong>
+      <span>Zeroes heading while keeping current XY pose. Works while disabled.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge col-x">X</div>
+    <div class="card-text">
+      <strong>X — X-Lock Drive</strong>
+      <span>Stops the robot by angling all swerve modules into an X pattern.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge rect col-lb">LB</div>
+    <div class="card-text">
+      <strong>Left Bumper — Intake Reverse</strong>
+      <span>Hold: spins intake rollers in reverse to unjam. Release: stops.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge rect col-rb">RB</div>
+    <div class="card-text">
+      <strong>Right Bumper — Shoot</strong>
+      <span>Spins up launcher → waits for target RPM → runs indexer + launcher. Release: stops both.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge rect col-lt">LT</div>
+    <div class="card-text">
+      <strong>Left Trigger — Indexer Reverse</strong>
+      <span>Hold: runs indexer in reverse to unjam. Release: stops indexer.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="badge rect col-rt">RT</div>
+    <div class="card-text">
+      <strong>Right Trigger — Wiggle Intake</strong>
+      <span>Hold: oscillates intake pivot to shuffle game pieces into indexer.</span>
+    </div>
+  </div>
+
+</div>
+
+<footer>AKit 2026 · Branch: tuning/live-pid · Generated 2026-05-03</footer>
+
+</body>
+</html>

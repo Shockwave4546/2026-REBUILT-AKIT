@@ -18,6 +18,8 @@ public class VisionConstants {
       AprilTagFieldLayout.loadField(AprilTagFields.kDefaultField);
 
   // Camera names, must match names configured on coprocessor
+  // TODO: Validate hub target detection works reliably from 2-4m on real court in competition
+  // lighting
   public static String camera0Name = "FrontLeft";
   public static String camera1Name = "FrontRight";
 

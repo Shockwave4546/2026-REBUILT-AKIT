@@ -65,10 +65,12 @@ public class DriveConstants {
   // Wheel Rad/Sec
 
   // Drive PID configuration
+  // TODO: Tune driveKp and driveKd on real robot for stable velocity control
   public static final double driveKp = 0.0;
   public static final double driveKd = 0.0;
   public static final double driveKs = 0.0;
   public static final double driveKv = 0.1;
+  // TODO: Run PathPlanner robot characterization to update sim gains (driveSimKv, driveSimKs)
   public static final double driveSimP = 0.05;
   public static final double driveSimD = 0.0;
   public static final double driveSimKs = 0.0;
@@ -86,8 +88,10 @@ public class DriveConstants {
   public static final double turnEncoderVelocityFactor = (2 * Math.PI) / 60.0; // RPM -> Rad/Sec
 
   // Turn PID configuration
+  // TODO: Tune turnKp and turnKd on real robot for stable steering control
   public static final double turnKp = 2.0;
   public static final double turnKd = 0.0;
+  // TODO: Validate sim turn gains (turnSimP, turnSimD) match real robot behavior
   public static final double turnSimP = 8.0;
   public static final double turnSimD = 0.0;
   public static final double turnPIDMinInput = 0; // Radians
