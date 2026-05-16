@@ -58,6 +58,28 @@ public class Vision extends SubsystemBase {
     return inputs[cameraIndex].latestTargetObservation.tx();
   }
 
+  /**
+   * Returns the average tag distance from the latest pose observation for the given camera. Returns
+   * -1 if no observations are available.
+   *
+   * @param cameraIndex The index of the camera to use.
+   */
+  public double getTargetDistance(int cameraIndex) {
+    var observations = inputs[cameraIndex].poseObservations;
+    if (observations.length == 0) return -1.0;
+    return observations[observations.length - 1].averageTagDistance();
+  }
+
+  /**
+   * Returns true if the given camera has a visible target.
+   *
+   * @param cameraIndex The index of the camera to use.
+   */
+  public boolean hasTarget(int cameraIndex) {
+    return inputs[cameraIndex].poseObservations.length > 0
+        || !inputs[cameraIndex].latestTargetObservation.tx().equals(Rotation2d.kZero);
+  }
+
   @Override
   public void periodic() {
     for (int i = 0; i < io.length; i++) {

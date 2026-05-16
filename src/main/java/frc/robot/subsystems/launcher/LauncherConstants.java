@@ -41,7 +41,7 @@ public final class LauncherConstants {
   public static final double kI_Shooter = 0.0;
   public static final double kD_Shooter = 0.0;
   public static final double kS_Shooter = 0.0;
-  public static final double kV_Shooter = 0.00015;
+  public static final double kV_Shooter = 0.00189;
   public static final double kA_Shooter = 0.0;
 
   // Tolerance for "at target RPM" (RPM)

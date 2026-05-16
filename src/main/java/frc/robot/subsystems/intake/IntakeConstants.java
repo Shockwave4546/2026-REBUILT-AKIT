@@ -32,7 +32,7 @@ public final class IntakeConstants {
   public static final double kIntakePivotMaxPosition = 0.66; // retracted, hard limit
 
   // Named setpoints
-  public static final double kIntakePivotDeployedPosition = 0.29;
+  public static final double kIntakePivotDeployedPosition = 0.299;
   public static final double kIntakePivotPartiallyDeployedPosition = 0.367;
   public static final double kIntakePivotWeightlessPosition = 0.58;
   public static final double kIntakePivotRetractedPosition = 0.63;
@@ -45,7 +45,7 @@ public final class IntakeConstants {
   public static final double kIntakeRollerMaxRunPosition = 0.5;
 
   // Current limits
-  public static final int kIntakePivotCurrentLimit = 70;
+  public static final int kIntakePivotCurrentLimit = 14;
   public static final int kIntakeRollerCurrentLimit = 20;
 
   // Roller speeds

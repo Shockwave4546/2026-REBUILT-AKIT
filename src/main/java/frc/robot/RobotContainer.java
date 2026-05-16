@@ -11,11 +11,15 @@ import static frc.robot.subsystems.vision.VisionConstants.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
+import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
@@ -59,8 +63,6 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   // Subsystems
   private final Drive drive;
-
-  @SuppressWarnings("unused") // Used internally by AdvantageKit Logger
   private final Vision vision;
 
   private final Intake intake;
@@ -69,6 +71,9 @@ public class RobotContainer {
 
   // Controller
   private final CommandXboxController controller = new CommandXboxController(0);
+
+  // Intake toggle state
+  private boolean intakeDeployed = false;
 
   // Dashboard inputs
   private final LoggedDashboardChooser<Command> autoChooser;
@@ -211,25 +216,22 @@ public class RobotContainer {
             () -> -controller.getLeftX(),
             () -> -controller.getRightX()));
 
-    // A button: Deploy and run intake
+    // A button: Toggle deploy/retract intake
     controller
         .a()
         .onTrue(
-            Commands.sequence(
-                Commands.runOnce(
-                    () -> intake.setTargetPosition(IntakeConstants.kIntakePivotDeployedPosition),
-                    intake),
-                Commands.runOnce(intake::run, intake)))
-        .onFalse(Commands.runOnce(intake::stop, intake));
-
-    // Y button: Retract intake
-    controller
-        .y()
-        .onTrue(
             Commands.runOnce(
-                () -> intake.setTargetPosition(IntakeConstants.kIntakePivotRetractedPosition),
-                intake))
-        .onFalse(Commands.runOnce(intake::stopPivot, intake));
+                () -> {
+                  intakeDeployed = !intakeDeployed;
+                  if (intakeDeployed) {
+                    intake.setTargetPosition(IntakeConstants.kIntakePivotDeployedPosition);
+                    intake.run();
+                  } else {
+                    intake.stopRollers();
+                    intake.setTargetPosition(IntakeConstants.kIntakePivotRetractedPosition);
+                  }
+                },
+                intake));
 
     // Left bumper: Spin intake reverse (unjam)
     controller
@@ -237,11 +239,17 @@ public class RobotContainer {
         .onTrue(Commands.runOnce(intake::runReverse, intake))
         .onFalse(Commands.runOnce(intake::stop, intake));
 
-    // Right bumper: Run indexer and launcher together
+    // Right bumper: Short shot - read RPM from HUD
     controller
         .rightBumper()
         .onTrue(
             Commands.sequence(
+                Commands.runOnce(
+                    () ->
+                        launcher.setTargetRpm(
+                            SmartDashboard.getNumber(
+                                "Launcher/Short Shot RPM", LauncherConstants.kShooterShortRpm)),
+                    launcher),
                 Commands.runOnce(launcher::spinUp, launcher),
                 Commands.waitUntil(launcher::isAtTargetRpm),
                 Commands.runOnce(indexer::run, indexer),
@@ -251,11 +259,25 @@ public class RobotContainer {
                 Commands.runOnce(launcher::stop, launcher),
                 Commands.runOnce(indexer::stop, indexer)));
 
-    // Left trigger: Run indexer reverse (unjam)
+    // Left trigger: Long shot - read RPM from HUD
     controller
         .leftTrigger()
-        .onTrue(Commands.runOnce(indexer::runReverse, indexer))
-        .onFalse(Commands.runOnce(indexer::stop, indexer));
+        .onTrue(
+            Commands.sequence(
+                Commands.runOnce(
+                    () ->
+                        launcher.setTargetRpm(
+                            SmartDashboard.getNumber(
+                                "Launcher/Long Shot RPM", LauncherConstants.kShooterLongRpm)),
+                    launcher),
+                Commands.runOnce(launcher::spinUp, launcher),
+                Commands.waitUntil(launcher::isAtTargetRpm),
+                Commands.runOnce(indexer::run, indexer),
+                Commands.runOnce(launcher::run, launcher)))
+        .onFalse(
+            Commands.sequence(
+                Commands.runOnce(launcher::stop, launcher),
+                Commands.runOnce(indexer::stop, indexer)));
 
     // Right trigger: Wiggle intake to shuffle pieces into indexer
     controller
@@ -263,17 +285,51 @@ public class RobotContainer {
         .onTrue(Commands.runOnce(intake::startWiggle, intake))
         .onFalse(Commands.runOnce(intake::stopWiggle, intake));
 
-    // Switch to X pattern when X button is pressed
-    controller.x().onTrue(Commands.runOnce(drive::stopWithX, drive));
+    // X button: Hold to point at AprilTag and enforce shooting distance (46–77.5 in)
+    // Camera 0 is 10.5 in behind robot center, so camera distance = robot center distance + 10.5 in
+    final double kCameraOffsetM = Units.inchesToMeters(10.5);
+    final double kMinDistanceM = Units.inchesToMeters(46.0) + kCameraOffsetM;
+    final double kMaxDistanceM = Units.inchesToMeters(77.5) + kCameraOffsetM;
+    final double kAngleKp = 3.0;
+    final double kDistKp = 2.0;
+    controller
+        .x()
+        .whileTrue(
+            Commands.run(
+                () -> {
+                  // --- Rotation: servo onto tag yaw ---
+                  Rotation2d targetX = vision.getTargetX(0);
+                  double angularVelocity = -kAngleKp * targetX.getRadians();
 
-    // Reset gyro to 0° when B button is pressed
+                  // --- Translation: enforce distance only outside the allowed range ---
+                  double distance = vision.getTargetDistance(0);
+                  double linearVelocity = 0.0;
+                  if (distance > 0) {
+                    if (distance > kMaxDistanceM) {
+                      // Too far — drive forward toward tag
+                      linearVelocity = kDistKp * (distance - kMaxDistanceM);
+                    } else if (distance < kMinDistanceM) {
+                      // Too close — back away from tag
+                      linearVelocity = kDistKp * (distance - kMinDistanceM);
+                    }
+                    linearVelocity = MathUtil.clamp(linearVelocity, -1.5, 1.5);
+                  }
+
+                  // Drive forward/back in robot-relative X (camera faces forward)
+                  drive.runVelocity(new ChassisSpeeds(linearVelocity, 0.0, angularVelocity));
+                },
+                drive))
+        .onFalse(Commands.runOnce(() -> drive.runVelocity(new ChassisSpeeds()), drive));
+
+    // Reset gyro to 180° when B button is pressed
     controller
         .b()
         .onTrue(
             Commands.runOnce(
                     () ->
                         drive.setPose(
-                            new Pose2d(drive.getPose().getTranslation(), Rotation2d.kZero)),
+                            new Pose2d(
+                                drive.getPose().getTranslation(), Rotation2d.fromDegrees(180))),
                     drive)
                 .ignoringDisable(true));
   }
