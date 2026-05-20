@@ -132,6 +132,8 @@ public class VisionCommands {
   public static Command aimBarrelAtHub(Drive drive, double minDistanceM, double maxDistanceM) {
     final double kAngleKp = 3.0;
     final double kDistKp = 2.0;
+    // Robot bumper half-size: module-to-center (0.273m) + bumper thickness (~3.5in = 0.089m)
+    final double kBumperHalfSize = 0.273 + Units.inchesToMeters(3.5);
     return Commands.run(
             () -> {
               Pose2d robotPose = drive.getPose();
@@ -158,13 +160,29 @@ public class VisionCommands {
 
               double linearVelocity = 0.0;
               if (robotCenterDistance > maxDistanceM) {
-                // Too far — drive forward (positive X = robot forward = toward hub)
                 linearVelocity = kDistKp * (robotCenterDistance - maxDistanceM);
               } else if (robotCenterDistance < minDistanceM) {
-                // Too close — back up (negative X)
                 linearVelocity = kDistKp * (robotCenterDistance - minDistanceM);
               }
               linearVelocity = edu.wpi.first.math.MathUtil.clamp(linearVelocity, -1.5, 1.5);
+
+              // --- Alliance zone keepout: bumpers must not cross the alliance zone boundary ---
+              // Blue alliance zone: X < 3.4m. Red alliance zone: X > (fieldLength - 3.4m).
+              final double kAllianceZoneDepth = 3.4; // meters from each end of field
+              double robotX = robotPose.getX();
+              if (!isRed) {
+                // Blue: front bumper must not exceed the alliance zone boundary
+                double limit = kAllianceZoneDepth - kBumperHalfSize;
+                if (robotX > limit && linearVelocity > 0) {
+                  linearVelocity = 0.0;
+                }
+              } else {
+                // Red: front bumper must not go below the alliance zone boundary
+                double limit = FieldConstants.fieldLength - kAllianceZoneDepth + kBumperHalfSize;
+                if (robotX < limit && linearVelocity < 0) {
+                  linearVelocity = 0.0;
+                }
+              }
 
               drive.runVelocity(new ChassisSpeeds(linearVelocity, 0.0, angularVelocity));
             },
