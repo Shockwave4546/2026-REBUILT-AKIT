@@ -7,19 +7,25 @@
         {
           "type": "path",
           "data": {
-            "pathName": "MIdfieldLeft"
+            "pathName": "CenterToHP"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 3.0
           }
         },
         {
           "type": "path",
           "data": {
-            "pathName": "LeftTrench"
+            "pathName": "HPtoCenter"
           }
         },
         {
           "type": "named",
           "data": {
-            "name": "Spin360Test"
+            "name": "Setup and Shoot"
           }
         }
       ]

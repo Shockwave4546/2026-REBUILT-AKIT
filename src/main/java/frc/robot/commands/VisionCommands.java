@@ -553,7 +553,7 @@ public class VisionCommands {
               double distanceToHub = Math.hypot(dx, dy);
               double robotHeading = robotPose.getRotation().getRadians();
 
-              // Barrel world position — used for heading and distance control
+              // Barrel world position — used for heading and driving distance
               Translation2d barrelPos = getBarrelWorldPosition(robotPose);
               double bdx = hubTarget.getX() - barrelPos.getX();
               double bdy = hubTarget.getY() - barrelPos.getY();
@@ -578,20 +578,19 @@ public class VisionCommands {
               // For safety check: get the error the controller computed (handles wrapping)
               double angleDifference = angleController.getPositionError();
 
-              // Calculate distance control using barrel-to-hub distance.
-              // Translation is robot-relative forward (barrel moves along its own vector).
-              // Negate: PID positive error (too far) → positive output → move forward.
+              // Distance control: drive based on barrel-to-hub (barrel reaches the right spot).
+              // Safety gate + RPM lookup use robot-center distance (matches lookup table).
               double distancePIDOutput =
                   distanceController.calculate(barrelToHubDistance, targetDistance);
               double linearVelocity = -distancePIDOutput;
 
-              // Robot-relative forward/back to move barrel along its vector toward hub
+              // Robot-relative forward/back
               ChassisSpeeds speeds = new ChassisSpeeds(linearVelocity, 0.0, angularVelocity);
 
               // === SAFETY CHECK: Shooter Status ===
               boolean isAtTargetRPM = launcher.isAtTargetRpm();
               boolean isWithinDistance =
-                  barrelToHubDistance >= minDistance && barrelToHubDistance <= maxDistance;
+                  distanceToHub >= minDistance && distanceToHub <= maxDistance;
               boolean isPointingAtHub = Math.abs(angleDifference) <= ANGLE_TOLERANCE;
 
               // === DETERMINE PHASE ===
@@ -632,14 +631,13 @@ public class VisionCommands {
                 String debugLog =
                     String.format(
                         "[SETUP_SHOOT] Iter %3d | Angle:%s Dist:%s RPM:%s Fire:%s | "
-                            + "Angle:%.1f° BarrelDist:%.2fm CenterDist:%.2fm RPM:%.0f/%.0f Idx:%d",
+                            + "Angle:%.1f° CenterDist:%.2fm RPM:%.0f/%.0f Idx:%d",
                         loopCount[0],
                         (isPointingAtHub ? "Y" : "N"),
                         (isWithinDistance ? "Y" : "N"),
                         (isAtTargetRPM ? "Y" : "N"),
                         (isFiring[0] ? "YES" : "no "),
                         Units.radiansToDegrees(angleDifference),
-                        barrelToHubDistance,
                         distanceToHub,
                         launcher.getShooterRpm(),
                         targetRPM,
