@@ -32,6 +32,38 @@ public class VisionCommands {
   private static final double ANGLE_MAX_ACCELERATION = 20.0;
   private static final double ANGLE_TOLERANCE = Units.degreesToRadians(2.0);
 
+  // Launcher barrel is angled 3° to the RIGHT of robot forward.
+  // Barrel direction in field frame = robotHeading - LAUNCHER_BARREL_ANGLE_RAD.
+  // For barrel to face hub: robotHeading - cant = barrelToHubAngle
+  //   → desiredHeading = barrelToHubAngle + LAUNCHER_BARREL_ANGLE_RAD
+  private static final double LAUNCHER_BARREL_ANGLE_RAD = Math.toRadians(3.0);
+
+  // Barrel is (27/2 - 3.5) = 10 in BEHIND and 10 in RIGHT of robot center.
+  // WPILib convention: X = forward, Y = left, so behind = negative X, right = negative Y.
+  private static final double LAUNCHER_FORWARD_OFFSET_M =
+      -Units.inchesToMeters(10.0); // behind center
+  private static final double LAUNCHER_LATERAL_OFFSET_M =
+      Units.inchesToMeters(10.0); // right of center
+
+  /**
+   * Computes the barrel's position in field coordinates given the current robot pose. Barrel is
+   * LAUNCHER_FORWARD_OFFSET_M forward and LAUNCHER_LATERAL_OFFSET_M to the right of robot center.
+   */
+  private static Translation2d getBarrelWorldPosition(Pose2d robotPose) {
+    double heading = robotPose.getRotation().getRadians();
+    // Robot forward unit vector: (cos θ, sin θ)
+    // Robot right unit vector:   (sin θ, -cos θ)
+    double fieldX =
+        robotPose.getX()
+            + Math.cos(heading) * LAUNCHER_FORWARD_OFFSET_M
+            + Math.sin(heading) * LAUNCHER_LATERAL_OFFSET_M;
+    double fieldY =
+        robotPose.getY()
+            + Math.sin(heading) * LAUNCHER_FORWARD_OFFSET_M
+            - Math.cos(heading) * LAUNCHER_LATERAL_OFFSET_M;
+    return new Translation2d(fieldX, fieldY);
+  }
+
   private VisionCommands() {}
 
   /**
@@ -88,6 +120,59 @@ public class VisionCommands {
   }
 
   /**
+   * Hold command: continuously rotates the robot so the barrel points at the hub and enforces
+   * shooting distance (barrel-to-hub). Uses full barrel geometry (position + cant angle). The
+   * distance range passed should be in robot-center terms to match the lookup table.
+   *
+   * @param drive The drive subsystem
+   * @param minDistanceM Minimum acceptable barrel-to-hub distance (meters)
+   * @param maxDistanceM Maximum acceptable barrel-to-hub distance (meters)
+   * @return A command to hold while pressed
+   */
+  public static Command aimBarrelAtHub(Drive drive, double minDistanceM, double maxDistanceM) {
+    final double kAngleKp = 3.0;
+    final double kDistKp = 2.0;
+    return Commands.run(
+            () -> {
+              Pose2d robotPose = drive.getPose();
+              boolean isRed = DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red;
+              Translation2d hubTarget =
+                  isRed ? FieldConstants.Hub.oppCenterPoint : FieldConstants.Hub.centerPoint;
+
+              // --- Rotation: use barrel world position to aim barrel at hub ---
+              Translation2d barrelPos = getBarrelWorldPosition(robotPose);
+              double bdx = hubTarget.getX() - barrelPos.getX();
+              double bdy = hubTarget.getY() - barrelPos.getY();
+              double barrelToHubAngle = Math.atan2(bdy, bdx);
+
+              double desiredHeading = barrelToHubAngle + LAUNCHER_BARREL_ANGLE_RAD;
+              double headingError = desiredHeading - robotPose.getRotation().getRadians();
+              headingError = Math.atan2(Math.sin(headingError), Math.cos(headingError));
+              double angularVelocity = kAngleKp * headingError;
+
+              // --- Translation: enforce distance using robot-CENTER to hub ---
+              // minDistanceM/maxDistanceM are in robot-center terms (matching the lookup table).
+              double dx = hubTarget.getX() - robotPose.getX();
+              double dy = hubTarget.getY() - robotPose.getY();
+              double robotCenterDistance = Math.hypot(dx, dy);
+
+              double linearVelocity = 0.0;
+              if (robotCenterDistance > maxDistanceM) {
+                // Too far — drive forward (positive X = robot forward = toward hub)
+                linearVelocity = kDistKp * (robotCenterDistance - maxDistanceM);
+              } else if (robotCenterDistance < minDistanceM) {
+                // Too close — back up (negative X)
+                linearVelocity = kDistKp * (robotCenterDistance - minDistanceM);
+              }
+              linearVelocity = edu.wpi.first.math.MathUtil.clamp(linearVelocity, -1.5, 1.5);
+
+              drive.runVelocity(new ChassisSpeeds(linearVelocity, 0.0, angularVelocity));
+            },
+            drive)
+        .finallyDo(() -> drive.runVelocity(new ChassisSpeeds()));
+  }
+
+  /**
    * Aligns the robot's front to the center of the hub using vision. The robot will rotate to face
    * the hub target. Automatically detects which alliance hub based on DriverStation.
    *
@@ -133,10 +218,15 @@ public class VisionCommands {
                   Translation2d hubTarget =
                       isRed ? FieldConstants.Hub.oppCenterPoint : FieldConstants.Hub.centerPoint;
 
-                  // Calculate desired angle to point at hub center
-                  double dx = hubTarget.getX() - robotPose.getX();
-                  double dy = hubTarget.getY() - robotPose.getY();
-                  double desiredAngle = Math.atan2(dy, dx);
+                  // Compute barrel world position and aim barrel at hub.
+                  // desiredHeading = angle(barrel→hub) + cant, because barrel faces
+                  // (robotHeading - cant), so: robotHeading - cant = angle → robotHeading = angle +
+                  // cant
+                  Translation2d barrelPos = getBarrelWorldPosition(robotPose);
+                  double bdx = hubTarget.getX() - barrelPos.getX();
+                  double bdy = hubTarget.getY() - barrelPos.getY();
+                  double barrelToHubAngle = Math.atan2(bdy, bdx);
+                  double desiredAngle = barrelToHubAngle + LAUNCHER_BARREL_ANGLE_RAD;
 
                   // Calculate angular velocity using PID
                   double angularVelocity =
@@ -439,15 +529,22 @@ public class VisionCommands {
               Translation2d hubTarget =
                   isRed ? FieldConstants.Hub.oppCenterPoint : FieldConstants.Hub.centerPoint;
 
-              // Calculate distance and angle to hub
+              // Robot-center distance — used only for RPM lookup (table was calibrated from center)
               double dx = hubTarget.getX() - robotPose.getX();
               double dy = hubTarget.getY() - robotPose.getY();
               double distanceToHub = Math.hypot(dx, dy);
-              double headingToHub = Math.atan2(dy, dx);
               double robotHeading = robotPose.getRotation().getRadians();
 
-              // Robot back should point AT the hub (same as alignToHub)
-              double desiredHeading = headingToHub;
+              // Barrel world position — used for heading and distance control
+              Translation2d barrelPos = getBarrelWorldPosition(robotPose);
+              double bdx = hubTarget.getX() - barrelPos.getX();
+              double bdy = hubTarget.getY() - barrelPos.getY();
+              double barrelToHubAngle = Math.atan2(bdy, bdx);
+              double barrelToHubDistance = Math.hypot(bdx, bdy);
+
+              // Desired heading: barrel (which faces robotHeading - cant) must point at hub
+              // → robotHeading - cant = barrelToHubAngle → robotHeading = barrelToHubAngle + cant
+              double desiredHeading = barrelToHubAngle + LAUNCHER_BARREL_ANGLE_RAD;
 
               // Get shooting parameters
               double targetRPM = getFlywheelRPMForCurrentDistance(drive);
@@ -463,23 +560,20 @@ public class VisionCommands {
               // For safety check: get the error the controller computed (handles wrapping)
               double angleDifference = angleController.getPositionError();
 
-              // Calculate distance control (negate: PID positive error = too far = move toward hub)
+              // Calculate distance control using barrel-to-hub distance.
+              // Translation is robot-relative forward (barrel moves along its own vector).
+              // Negate: PID positive error (too far) → positive output → move forward.
               double distancePIDOutput =
-                  distanceController.calculate(distanceToHub, targetDistance);
+                  distanceController.calculate(barrelToHubDistance, targetDistance);
               double linearVelocity = -distancePIDOutput;
 
-              // Convert field-relative linear velocity to robot-relative chassis speeds
-              ChassisSpeeds speeds =
-                  ChassisSpeeds.fromFieldRelativeSpeeds(
-                      Math.cos(headingToHub) * linearVelocity,
-                      Math.sin(headingToHub) * linearVelocity,
-                      angularVelocity,
-                      drive.getRotation());
+              // Robot-relative forward/back to move barrel along its vector toward hub
+              ChassisSpeeds speeds = new ChassisSpeeds(linearVelocity, 0.0, angularVelocity);
 
               // === SAFETY CHECK: Shooter Status ===
               boolean isAtTargetRPM = launcher.isAtTargetRpm();
               boolean isWithinDistance =
-                  distanceToHub >= minDistance && distanceToHub <= maxDistance;
+                  barrelToHubDistance >= minDistance && barrelToHubDistance <= maxDistance;
               boolean isPointingAtHub = Math.abs(angleDifference) <= ANGLE_TOLERANCE;
 
               // === DETERMINE PHASE ===
@@ -520,13 +614,14 @@ public class VisionCommands {
                 String debugLog =
                     String.format(
                         "[SETUP_SHOOT] Iter %3d | Angle:%s Dist:%s RPM:%s Fire:%s | "
-                            + "Angle:%.1f° Dist:%.2fm RPM:%.0f/%.0f Idx:%d",
+                            + "Angle:%.1f° BarrelDist:%.2fm CenterDist:%.2fm RPM:%.0f/%.0f Idx:%d",
                         loopCount[0],
                         (isPointingAtHub ? "Y" : "N"),
                         (isWithinDistance ? "Y" : "N"),
                         (isAtTargetRPM ? "Y" : "N"),
                         (isFiring[0] ? "YES" : "no "),
                         Units.radiansToDegrees(angleDifference),
+                        barrelToHubDistance,
                         distanceToHub,
                         launcher.getShooterRpm(),
                         targetRPM,

@@ -11,10 +11,8 @@ import static frc.robot.subsystems.vision.VisionConstants.*;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
-import edu.wpi.first.math.MathUtil;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
-import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
@@ -63,6 +61,8 @@ import org.littletonrobotics.junction.networktables.LoggedDashboardChooser;
 public class RobotContainer {
   // Subsystems
   private final Drive drive;
+
+  @SuppressWarnings("unused") // Vision feeds pose measurements into drive via addVisionMeasurement
   private final Vision vision;
 
   private final Intake intake;
@@ -285,51 +285,27 @@ public class RobotContainer {
         .onTrue(Commands.runOnce(intake::startWiggle, intake))
         .onFalse(Commands.runOnce(intake::stopWiggle, intake));
 
-    // X button: Hold to point at AprilTag and enforce shooting distance (46–77.5 in)
-    // Camera 0 is 10.5 in behind robot center, so camera distance = robot center distance + 10.5 in
-    final double kCameraOffsetM = Units.inchesToMeters(10.5);
-    final double kMinDistanceM = Units.inchesToMeters(46.0) + kCameraOffsetM;
-    final double kMaxDistanceM = Units.inchesToMeters(77.5) + kCameraOffsetM;
-    final double kAngleKp = 3.0;
-    final double kDistKp = 2.0;
+    // X button: Hold to aim barrel at hub (pose-based, tag-to-robot geometry)
     controller
         .x()
         .whileTrue(
-            Commands.run(
-                () -> {
-                  // --- Rotation: servo onto tag yaw ---
-                  Rotation2d targetX = vision.getTargetX(0);
-                  double angularVelocity = -kAngleKp * targetX.getRadians();
+            VisionCommands.aimBarrelAtHub(
+                drive, Units.inchesToMeters(46.0), Units.inchesToMeters(77.5)));
 
-                  // --- Translation: enforce distance only outside the allowed range ---
-                  double distance = vision.getTargetDistance(0);
-                  double linearVelocity = 0.0;
-                  if (distance > 0) {
-                    if (distance > kMaxDistanceM) {
-                      // Too far — drive forward toward tag
-                      linearVelocity = kDistKp * (distance - kMaxDistanceM);
-                    } else if (distance < kMinDistanceM) {
-                      // Too close — back away from tag
-                      linearVelocity = kDistKp * (distance - kMinDistanceM);
-                    }
-                    linearVelocity = MathUtil.clamp(linearVelocity, -1.5, 1.5);
-                  }
-
-                  // Drive forward/back in robot-relative X (camera faces forward)
-                  drive.runVelocity(new ChassisSpeeds(linearVelocity, 0.0, angularVelocity));
-                },
-                drive))
-        .onFalse(Commands.runOnce(() -> drive.runVelocity(new ChassisSpeeds()), drive));
-
-    // Reset gyro to 180° when B button is pressed
+    // B button: Hold to align barrel to hub using global field pose (alignToHub)
     controller
         .b()
+        .whileTrue(Commands.defer(() -> VisionCommands.alignToHub(drive), java.util.Set.of(drive)));
+
+    // Start button: Zero gyro heading (set current heading to 0°)
+    controller
+        .start()
         .onTrue(
             Commands.runOnce(
                     () ->
                         drive.setPose(
                             new Pose2d(
-                                drive.getPose().getTranslation(), Rotation2d.fromDegrees(180))),
+                                drive.getPose().getTranslation(), Rotation2d.fromDegrees(0))),
                     drive)
                 .ignoringDisable(true));
   }
