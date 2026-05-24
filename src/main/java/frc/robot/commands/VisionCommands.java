@@ -32,11 +32,9 @@ public class VisionCommands {
   private static final double ANGLE_MAX_ACCELERATION = 20.0;
   private static final double ANGLE_TOLERANCE = Units.degreesToRadians(2.0);
 
-  // Launcher barrel is angled 3° to the RIGHT of robot forward.
-  // Barrel direction in field frame = robotHeading - LAUNCHER_BARREL_ANGLE_RAD.
-  // For barrel to face hub: robotHeading - cant = barrelToHubAngle
-  //   → desiredHeading = barrelToHubAngle + LAUNCHER_BARREL_ANGLE_RAD
-  private static final double LAUNCHER_BARREL_ANGLE_RAD = Math.toRadians(3.0);
+  // Launcher barrel is aligned with robot forward (no cant angle).
+  // desiredHeading = barrelToHubAngle (barrel points directly at hub when robot faces hub)
+  private static final double LAUNCHER_BARREL_ANGLE_RAD = 0.0;
 
   // Barrel is (27/2 - 3.5) = 10 in BEHIND and 10 in RIGHT of robot center.
   // WPILib convention: X = forward, Y = left, so behind = negative X, right = negative Y.
@@ -311,7 +309,7 @@ public class VisionCommands {
   public static Command enforceDistance(Drive drive, double minDistance, double maxDistance) {
     // PID controller for distance (linear velocity control)
     @SuppressWarnings("resource")
-    var pidController = new edu.wpi.first.math.controller.PIDController(2.0, 0.0, 0.1);
+    var pidController = new PIDController(2.0, 0.0, 0.1);
     pidController.setTolerance(0.05); // 5cm tolerance
 
     System.err.println(
@@ -509,7 +507,7 @@ public class VisionCommands {
 
     @SuppressWarnings("resource")
     final PIDController distanceController = new PIDController(1.0, 0.0, 0.0);
-    distanceController.setTolerance(0.05); // 5cm tolerance
+    distanceController.setTolerance(0.05);
 
     int[] loopCount = {0};
     boolean[] isFiring = {false};
@@ -558,7 +556,6 @@ public class VisionCommands {
               double bdx = hubTarget.getX() - barrelPos.getX();
               double bdy = hubTarget.getY() - barrelPos.getY();
               double barrelToHubAngle = Math.atan2(bdy, bdx);
-              double barrelToHubDistance = Math.hypot(bdx, bdy);
 
               // Desired heading: barrel (which faces robotHeading - cant) must point at hub
               // → robotHeading - cant = barrelToHubAngle → robotHeading = barrelToHubAngle + cant
@@ -571,18 +568,15 @@ public class VisionCommands {
               double maxDistance = distanceRange[1];
               double targetDistance = (minDistance + maxDistance) / 2.0;
 
-              // Calculate angle control - pass raw values like alignToHub does
-              // enableContinuousInput handles wrapping internally; do NOT pre-compute error
-              double angularVelocity = angleController.calculate(robotHeading, desiredHeading);
-
-              // For safety check: get the error the controller computed (handles wrapping)
-              double angleDifference = angleController.getPositionError();
-
-              // Distance control: drive based on barrel-to-hub (barrel reaches the right spot).
-              // Safety gate + RPM lookup use robot-center distance (matches lookup table).
+              // Distance control: PID to midpoint of valid range using robot-center distance.
               double distancePIDOutput =
-                  distanceController.calculate(barrelToHubDistance, targetDistance);
+                  distanceController.calculate(distanceToHub, targetDistance);
               double linearVelocity = -distancePIDOutput;
+              linearVelocity = edu.wpi.first.math.MathUtil.clamp(linearVelocity, -1.5, 1.5);
+
+              // Angle control
+              double angularVelocity = angleController.calculate(robotHeading, desiredHeading);
+              double angleDifference = angleController.getPositionError();
 
               // Robot-relative forward/back
               ChassisSpeeds speeds = new ChassisSpeeds(linearVelocity, 0.0, angularVelocity);
@@ -601,8 +595,11 @@ public class VisionCommands {
               }
 
               // === INDEX SAFETY GATE ===
-              // Only allow indexer to run if ALL safety checks pass
-              boolean shouldFire = isPointingAtHub && isWithinDistance && isAtTargetRPM;
+              // Only allow indexer to run if ALL safety checks pass.
+              // Once firing has started, keep the indexer running until the command ends —
+              // a momentary angle/distance flicker during the shot should not cut the feed.
+              boolean shouldFire =
+                  isFiring[0] || (isPointingAtHub && isWithinDistance && isAtTargetRPM);
               if (shouldFire) {
                 // All good - transition to full run mode and feed
                 if (!launcher.isRunning()) {

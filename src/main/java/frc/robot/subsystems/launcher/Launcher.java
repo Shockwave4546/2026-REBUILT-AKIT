@@ -39,6 +39,7 @@ public class Launcher extends SubsystemBase {
   private boolean isSpinningUp = false;
   private boolean isFeederRunning = false;
   private boolean isFeederReversing = false;
+  private boolean feederLatched = false; // latches true once feeder fires; reset on stop()
 
   private double targetRpm = LauncherConstants.kShooterTargetRpm;
   // TODO: These will be used for short/long shot commands
@@ -101,11 +102,15 @@ public class Launcher extends SubsystemBase {
       shooterPID.reset();
     }
 
-    // Handle feeder based on shooter state
-    if (isRunning && isAtTargetRpm()) {
+    // Handle feeder based on shooter state.
+    // Latch: once the feeder fires at target RPM, keep it running through any RPM dip.
+    if (isRunning) {
+      if (isAtTargetRpm() && isFeederRunning) {
+        feederLatched = true;
+      }
       if (isFeederReversing) {
         io.setFeederDuty(-LauncherConstants.kFeederVoltage / 12.0);
-      } else if (isFeederRunning) {
+      } else if (feederLatched) {
         io.setFeederDuty(LauncherConstants.kFeederVoltage / 12.0);
       } else {
         io.setFeederDuty(0.0);
@@ -141,6 +146,7 @@ public class Launcher extends SubsystemBase {
     isSpinningUp = false;
     isFeederRunning = false;
     isFeederReversing = false;
+    feederLatched = false;
     io.stop();
   }
 

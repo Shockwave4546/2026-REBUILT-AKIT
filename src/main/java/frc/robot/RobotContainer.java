@@ -14,6 +14,7 @@ import com.pathplanner.lib.auto.NamedCommands;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.util.Units;
+import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.GenericHID;
 import edu.wpi.first.wpilibj.XboxController;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
@@ -163,6 +164,43 @@ public class RobotContainer {
         Commands.defer(
             () -> VisionCommands.setupAndShoot(drive, launcher, indexer),
             java.util.Set.of(drive, launcher, indexer)));
+    // Aim barrel at hub (align only, no shooting) — same range as X button
+    NamedCommands.registerCommand(
+        "Aim Barrel at Hub",
+        Commands.defer(
+            () ->
+                VisionCommands.aimBarrelAtHub(
+                    drive, Units.inchesToMeters(138.0), Units.inchesToMeters(232.5)),
+            java.util.Set.of(drive)));
+    // Rangefinder shot: read pose distance now, look up RPM, spin up and fire once
+    NamedCommands.registerCommand(
+        "Rangefinder Shot",
+        Commands.defer(
+            () -> {
+              Pose2d robotPose = drive.getPose();
+              boolean isRed =
+                  DriverStation.getAlliance()
+                      .map(a -> a == DriverStation.Alliance.Red)
+                      .orElse(false);
+              edu.wpi.first.math.geometry.Translation2d hubTarget =
+                  isRed
+                      ? frc.robot.FieldConstants.Hub.oppCenterPoint
+                      : frc.robot.FieldConstants.Hub.centerPoint;
+              double dist =
+                  Math.hypot(
+                      hubTarget.getX() - robotPose.getX(), hubTarget.getY() - robotPose.getY());
+              double rpm = ShootingConstants.getFlywheelRPM(dist);
+              return Commands.sequence(
+                  Commands.runOnce(() -> launcher.setTargetRpm(rpm), launcher),
+                  Commands.runOnce(launcher::spinUp, launcher),
+                  Commands.waitUntil(launcher::isAtTargetRpm),
+                  Commands.runOnce(indexer::run, indexer),
+                  Commands.runOnce(launcher::run, launcher),
+                  Commands.waitSeconds(1.0),
+                  Commands.runOnce(launcher::stop, launcher),
+                  Commands.runOnce(indexer::stop, indexer));
+            },
+            java.util.Set.of(drive, launcher, indexer)));
 
     // Log that commands are registered
     System.err.println("[RobotContainer] ===== Named Commands Registered =====");
@@ -170,6 +208,8 @@ public class RobotContainer {
     System.err.println("[RobotContainer] - Align to Hub");
     System.err.println("[RobotContainer] - Enforce Distance");
     System.err.println("[RobotContainer] - Setup and Shoot");
+    System.err.println("[RobotContainer] - Aim Barrel at Hub");
+    System.err.println("[RobotContainer] - Rangefinder Shot");
     System.err.flush();
 
     // Set up auto routines
@@ -290,22 +330,75 @@ public class RobotContainer {
         .x()
         .whileTrue(
             VisionCommands.aimBarrelAtHub(
-                drive, Units.inchesToMeters(46.0), Units.inchesToMeters(77.5)));
+                drive, Units.inchesToMeters(138.0), Units.inchesToMeters(232.5)));
+
+    // D-Pad Up: Full shooting sequence — align barrel, enforce distance, spin up, fire
+    controller
+        .povUp()
+        .whileTrue(
+            Commands.defer(
+                () -> VisionCommands.setupAndShoot(drive, launcher, indexer),
+                java.util.Set.of(drive, launcher, indexer)));
+
+    // D-Pad Down: Rangefinder shot — compute robot-center-to-hub distance from odometry on press,
+    // look up RPM, spin up and fire. Uses whileTrue so holding keeps shooter running.
+    controller
+        .povDown()
+        .onTrue(
+            Commands.runOnce(
+                () -> {
+                  // Use odometry pose for distance — matches how the lookup table was calibrated.
+                  // Falls back to short-shot RPM if alliance is unknown.
+                  Pose2d robotPose = drive.getPose();
+                  boolean isRed =
+                      DriverStation.getAlliance()
+                          .map(a -> a == DriverStation.Alliance.Red)
+                          .orElse(false);
+                  edu.wpi.first.math.geometry.Translation2d hubTarget =
+                      isRed
+                          ? frc.robot.FieldConstants.Hub.oppCenterPoint
+                          : frc.robot.FieldConstants.Hub.centerPoint;
+                  double dist =
+                      Math.hypot(
+                          hubTarget.getX() - robotPose.getX(), hubTarget.getY() - robotPose.getY());
+                  double rpm = ShootingConstants.getFlywheelRPM(dist);
+                  System.err.printf("[RANGEFINDER] Pose dist: %.3f m → RPM: %.0f%n", dist, rpm);
+                  launcher.setTargetRpm(rpm);
+                  launcher.spinUp();
+                },
+                launcher))
+        .whileTrue(
+            Commands.sequence(
+                Commands.waitUntil(launcher::isAtTargetRpm),
+                Commands.runOnce(indexer::run, indexer),
+                Commands.runOnce(launcher::run, launcher),
+                Commands.run(() -> {}, launcher, indexer))) // hold until button released
+        .onFalse(
+            Commands.sequence(
+                Commands.runOnce(launcher::stop, launcher),
+                Commands.runOnce(indexer::stop, indexer)));
 
     // B button: Hold to align barrel to hub using global field pose (alignToHub)
     controller
         .b()
         .whileTrue(Commands.defer(() -> VisionCommands.alignToHub(drive), java.util.Set.of(drive)));
 
-    // Start button: Zero gyro heading (set current heading to 0°)
+    // Start button: Zero gyro heading — 0° on blue (facing red wall), 180° on red (facing blue
+    // wall)
     controller
         .start()
         .onTrue(
             Commands.runOnce(
-                    () ->
-                        drive.setPose(
-                            new Pose2d(
-                                drive.getPose().getTranslation(), Rotation2d.fromDegrees(0))),
+                    () -> {
+                      boolean isRed =
+                          DriverStation.getAlliance()
+                              .map(a -> a == DriverStation.Alliance.Red)
+                              .orElse(false);
+                      drive.setPose(
+                          new Pose2d(
+                              drive.getPose().getTranslation(),
+                              Rotation2d.fromDegrees(isRed ? 180.0 : 0.0)));
+                    },
                     drive)
                 .ignoringDisable(true));
   }

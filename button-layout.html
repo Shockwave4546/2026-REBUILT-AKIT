@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Robot Controller Button Layout</title>
+    <style>
+      body { font-family: Inter, Roboto, Arial, sans-serif; padding: 24px; }
+      h1 { margin-bottom: 8px; }
+      table { border-collapse: collapse; width: 100%; max-width: 900px; }
+      th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
+      th { background: #f3f3f3; }
+      .note { color: #555; font-size: 0.9em; margin-top: 12px; }
+    </style>
+  </head>
+  <body>
+    <h1>Xbox Controller Button Layout</h1>
+    <p>Team 4546 — 2026 Rebuilt AKit (branch: testing/5-16)</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Button</th>
+          <th>Action</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>Left Stick</td><td>Drive (translate)</td><td>Field-relative; Y = forward/back, X = strafe</td></tr>
+        <tr><td>Right Stick X</td><td>Drive (rotate)</td><td>Field-relative rotation</td></tr>
+        <tr><td>A</td><td>Toggle intake deploy / retract</td><td>First press deploys + runs rollers; second press stops rollers + retracts</td></tr>
+        <tr><td>Left Bumper</td><td>Intake reverse (unjam)</td><td>Hold: reverses rollers; release: stops</td></tr>
+        <tr><td>Right Bumper</td><td>Short shot</td><td>Reads SmartDashboard "Launcher/Short Shot RPM"; spins up, waits for speed, then feeds</td></tr>
+        <tr><td>Left Trigger</td><td>Long shot</td><td>Reads SmartDashboard "Launcher/Long Shot RPM"; same spin-up sequence as short shot</td></tr>
+        <tr><td>Right Trigger</td><td>Wiggle intake</td><td>Hold: oscillates intake pivot to settle game pieces into indexer</td></tr>
+        <tr><td>X</td><td>Aim barrel at hub + enforce distance</td><td>Hold: pose-based barrel alignment (46–77.5 in robot-center distance); won't cross alliance zone boundary</td></tr>
+        <tr><td>D-Pad Up</td><td>Full shooting sequence</td><td>Hold: align barrel to hub, enforce distance, spin up to lookup-table RPM, fire when all checks pass</td></tr>
+        <tr><td>D-Pad Down</td><td>Rangefinder shot</td><td>Press: reads camera distance to tag right now, looks up RPM from table, spins up and fires; fallback to short-shot RPM if no tag visible</td></tr>
+        <tr><td>B</td><td>Align to hub (global pose)</td><td>Hold: field-pose heading alignment; finishes automatically when stable for 0.2 s</td></tr>
+        <tr><td>Start</td><td>Zero gyro heading</td><td>Sets current heading to 0°; works while disabled</td></tr>
+      </tbody>
+    </table>
+
+    <p class="note">
+      X button uses full barrel geometry (barrel is 10 in right + 10 in behind robot center, 3° cant).<br>
+      RPM lookup uses robot-center distance; distance enforcement and driving use barrel-to-hub distance.<br>
+      Vision (PhotonVision) continuously fuses AprilTag pose measurements into odometry via <code>addVisionMeasurement</code>.
+    </p>
+  </body>
+</html>

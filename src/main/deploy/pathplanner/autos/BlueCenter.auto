@@ -25,7 +25,13 @@
         {
           "type": "named",
           "data": {
-            "name": "Setup and Shoot"
+            "name": "Aim Barrel At Hub"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Rangefinder Shot"
           }
         }
       ]
