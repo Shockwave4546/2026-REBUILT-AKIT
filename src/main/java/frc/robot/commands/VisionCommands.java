@@ -47,7 +47,7 @@ public class VisionCommands {
    * Computes the barrel's position in field coordinates given the current robot pose. Barrel is
    * LAUNCHER_FORWARD_OFFSET_M forward and LAUNCHER_LATERAL_OFFSET_M to the right of robot center.
    */
-  private static Translation2d getBarrelWorldPosition(Pose2d robotPose) {
+  public static Translation2d getBarrelWorldPosition(Pose2d robotPose) {
     double heading = robotPose.getRotation().getRadians();
     // Robot forward unit vector: (cos θ, sin θ)
     // Robot right unit vector:   (sin θ, -cos θ)
@@ -129,6 +129,7 @@ public class VisionCommands {
    */
   public static Command aimBarrelAtHub(Drive drive, double minDistanceM, double maxDistanceM) {
     final double kAngleKp = 3.0;
+    final double kAngleDeadbandRad = Units.degreesToRadians(2.0); // ignore noise under 2°
     final double kDistKp = 2.0;
     // Robot bumper half-size: module-to-center (0.273m) + bumper thickness (~3.5in = 0.089m)
     final double kBumperHalfSize = 0.273 + Units.inchesToMeters(3.5);
@@ -148,19 +149,21 @@ public class VisionCommands {
               double desiredHeading = barrelToHubAngle + LAUNCHER_BARREL_ANGLE_RAD;
               double headingError = desiredHeading - robotPose.getRotation().getRadians();
               headingError = Math.atan2(Math.sin(headingError), Math.cos(headingError));
-              double angularVelocity = kAngleKp * headingError;
+              // Only correct if error is outside the deadband — prevents jitter from pose noise
+              double angularVelocity =
+                  Math.abs(headingError) > kAngleDeadbandRad ? kAngleKp * headingError : 0.0;
 
-              // --- Translation: enforce distance using robot-CENTER to hub ---
-              // minDistanceM/maxDistanceM are in robot-center terms (matching the lookup table).
-              double dx = hubTarget.getX() - robotPose.getX();
-              double dy = hubTarget.getY() - robotPose.getY();
-              double robotCenterDistance = Math.hypot(dx, dy);
+              // --- Translation: enforce distance using BARREL to hub ---
+              // minDistanceM/maxDistanceM are in barrel-to-hub terms (matching the lookup table).
+              double dx = hubTarget.getX() - barrelPos.getX();
+              double dy = hubTarget.getY() - barrelPos.getY();
+              double barrelDistance = Math.hypot(dx, dy);
 
               double linearVelocity = 0.0;
-              if (robotCenterDistance > maxDistanceM) {
-                linearVelocity = kDistKp * (robotCenterDistance - maxDistanceM);
-              } else if (robotCenterDistance < minDistanceM) {
-                linearVelocity = kDistKp * (robotCenterDistance - minDistanceM);
+              if (barrelDistance > maxDistanceM) {
+                linearVelocity = kDistKp * (barrelDistance - maxDistanceM);
+              } else if (barrelDistance < minDistanceM) {
+                linearVelocity = kDistKp * (barrelDistance - minDistanceM);
               }
               linearVelocity = edu.wpi.first.math.MathUtil.clamp(linearVelocity, -1.5, 1.5);
 
@@ -422,8 +425,9 @@ public class VisionCommands {
     Translation2d hubTarget =
         isRed ? FieldConstants.Hub.oppCenterPoint : FieldConstants.Hub.centerPoint;
 
-    double dx = hubTarget.getX() - robotPose.getX();
-    double dy = hubTarget.getY() - robotPose.getY();
+    Translation2d barrelPos = getBarrelWorldPosition(robotPose);
+    double dx = hubTarget.getX() - barrelPos.getX();
+    double dy = hubTarget.getY() - barrelPos.getY();
     double currentDistance = Math.hypot(dx, dy);
 
     double requiredRPM = ShootingConstants.getFlywheelRPM(currentDistance);
@@ -495,19 +499,8 @@ public class VisionCommands {
     System.out.println("\n>>> [SETUP_AND_SHOOT FACTORY] setupAndShoot() factory method called <<<");
     System.out.flush();
 
-    // Create PID controllers ONCE (not on every periodic call)
-    final ProfiledPIDController angleController =
-        new ProfiledPIDController(
-            ANGLE_KP,
-            0.0,
-            ANGLE_KD,
-            new TrapezoidProfile.Constraints(ANGLE_MAX_VELOCITY, ANGLE_MAX_ACCELERATION));
-    angleController.enableContinuousInput(-Math.PI, Math.PI);
-    angleController.setTolerance(ANGLE_TOLERANCE);
-
-    @SuppressWarnings("resource")
-    final PIDController distanceController = new PIDController(1.0, 0.0, 0.0);
-    distanceController.setTolerance(0.05);
+    final double kAngleKp = 3.0;
+    final double kAngleDeadbandRad = Units.degreesToRadians(2.0);
 
     int[] loopCount = {0};
     boolean[] isFiring = {false};
@@ -517,8 +510,6 @@ public class VisionCommands {
             () -> {
               // Initialize on first run
               if (!initialized[0]) {
-                angleController.reset(drive.getPose().getRotation().getRadians());
-                distanceController.reset();
                 loopCount[0] = 0;
                 isFiring[0] = false;
                 initialized[0] = true;
@@ -545,16 +536,14 @@ public class VisionCommands {
               Translation2d hubTarget =
                   isRed ? FieldConstants.Hub.oppCenterPoint : FieldConstants.Hub.centerPoint;
 
-              // Robot-center distance — used only for RPM lookup (table was calibrated from center)
-              double dx = hubTarget.getX() - robotPose.getX();
-              double dy = hubTarget.getY() - robotPose.getY();
-              double distanceToHub = Math.hypot(dx, dy);
-              double robotHeading = robotPose.getRotation().getRadians();
-
-              // Barrel world position — used for heading and driving distance
+              // Barrel distance — used for RPM lookup, distance enforcement, and heading
               Translation2d barrelPos = getBarrelWorldPosition(robotPose);
               double bdx = hubTarget.getX() - barrelPos.getX();
               double bdy = hubTarget.getY() - barrelPos.getY();
+              double distanceToHub = Math.hypot(bdx, bdy);
+              double robotHeading = robotPose.getRotation().getRadians();
+
+              // Heading: barrel must point at hub
               double barrelToHubAngle = Math.atan2(bdy, bdx);
 
               // Desired heading: barrel (which faces robotHeading - cant) must point at hub
@@ -566,17 +555,22 @@ public class VisionCommands {
               double[] distanceRange = ShootingConstants.getDistanceRange();
               double minDistance = distanceRange[0];
               double maxDistance = distanceRange[1];
-              double targetDistance = (minDistance + maxDistance) / 2.0;
 
-              // Distance control: PID to midpoint of valid range using robot-center distance.
-              double distancePIDOutput =
-                  distanceController.calculate(distanceToHub, targetDistance);
-              double linearVelocity = -distancePIDOutput;
+              // Distance control: only move if outside the valid range, same as aimBarrelAtHub.
+              final double kDistKp = 2.0;
+              double linearVelocity = 0.0;
+              if (distanceToHub > maxDistance) {
+                linearVelocity = kDistKp * (distanceToHub - maxDistance);
+              } else if (distanceToHub < minDistance) {
+                linearVelocity = kDistKp * (distanceToHub - minDistance);
+              }
               linearVelocity = edu.wpi.first.math.MathUtil.clamp(linearVelocity, -1.5, 1.5);
 
-              // Angle control
-              double angularVelocity = angleController.calculate(robotHeading, desiredHeading);
-              double angleDifference = angleController.getPositionError();
+              // Angle control — pure P with 2° deadband (same as aimBarrelAtHub)
+              double headingError = desiredHeading - robotHeading;
+              headingError = Math.atan2(Math.sin(headingError), Math.cos(headingError));
+              double angularVelocity =
+                  Math.abs(headingError) > kAngleDeadbandRad ? kAngleKp * headingError : 0.0;
 
               // Robot-relative forward/back
               ChassisSpeeds speeds = new ChassisSpeeds(linearVelocity, 0.0, angularVelocity);
@@ -585,7 +579,7 @@ public class VisionCommands {
               boolean isAtTargetRPM = launcher.isAtTargetRpm();
               boolean isWithinDistance =
                   distanceToHub >= minDistance && distanceToHub <= maxDistance;
-              boolean isPointingAtHub = Math.abs(angleDifference) <= ANGLE_TOLERANCE;
+              boolean isPointingAtHub = Math.abs(headingError) <= kAngleDeadbandRad;
 
               // === DETERMINE PHASE ===
               // If not yet spinning up, start spinner
@@ -634,7 +628,7 @@ public class VisionCommands {
                         (isWithinDistance ? "Y" : "N"),
                         (isAtTargetRPM ? "Y" : "N"),
                         (isFiring[0] ? "YES" : "no "),
-                        Units.radiansToDegrees(angleDifference),
+                        Units.radiansToDegrees(headingError),
                         distanceToHub,
                         launcher.getShooterRpm(),
                         targetRPM,

@@ -37,12 +37,10 @@ public class ShootingConstants {
    * interpolate between values.
    */
   private static final double[][] RPM_LOOKUP_TABLE = {
-    {0.7239, 2660}, // 0.7239 meters: 2660 RPM (minimum distance)
-    {0.9906, 2800},
-    {1.2954, 3040},
-    {1.524, 3130},
-    {1.8796, 3230},
-    {2.4384, 3600} // 2.4384 meters: 3600 RPM (maximum distance)
+    {3.09, 2675}, // 3.09 m → 2675 RPM (minimum calibrated distance)
+    {3.22, 2725},
+    {3.41, 2800},
+    {3.70, 2900} //  3.70 m → 2900 RPM (maximum calibrated distance)
   };
 
   /**

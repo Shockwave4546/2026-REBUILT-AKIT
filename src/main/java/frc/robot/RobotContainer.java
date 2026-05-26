@@ -158,20 +158,50 @@ public class RobotContainer {
         "Enforce Distance",
         Commands.defer(
             () -> VisionCommands.enforceDistance(drive, 3.5, 3.6), java.util.Set.of(drive)));
-    // Setup and shoot: aligns, enforces distance, and shoots with safety checks
+    // Setup and shoot (auto version): fully timed, self-terminating —
+    //   1. Aim barrel at hub and enforce distance for up to 3s
+    //   2. Look up RPM from current barrel distance, spin up (up to 5s to reach RPM)
+    //   3. Fire for 8s
+    //   4. Stop everything
     NamedCommands.registerCommand(
         "Setup and Shoot",
-        Commands.defer(
-            () -> VisionCommands.setupAndShoot(drive, launcher, indexer),
-            java.util.Set.of(drive, launcher, indexer)));
+        Commands.sequence(
+            // Phase 1: align barrel and enforce distance (drive required here only)
+            VisionCommands.aimBarrelAtHub(drive, 3.09, 3.70).withTimeout(3.0),
+            // Phase 2: look up RPM, spin up, fire — no drive required
+            Commands.defer(
+                () -> {
+                  double rpm = VisionCommands.getFlywheelRPMForCurrentDistance(drive);
+                  return Commands.sequence(
+                      Commands.runOnce(
+                          () -> {
+                            launcher.setTargetRpm(rpm);
+                            launcher.spinUp();
+                          },
+                          launcher),
+                      Commands.waitUntil(launcher::isAtTargetRpm).withTimeout(5.0),
+                      Commands.run(
+                              () -> {
+                                launcher.run();
+                                indexer.run();
+                              },
+                              launcher,
+                              indexer)
+                          .withTimeout(8.0),
+                      Commands.runOnce(
+                          () -> {
+                            launcher.stop();
+                            indexer.stop();
+                          },
+                          launcher,
+                          indexer));
+                },
+                java.util.Set.of(launcher, indexer))));
     // Aim barrel at hub (align only, no shooting) — same range as X button
     NamedCommands.registerCommand(
         "Aim Barrel at Hub",
         Commands.defer(
-            () ->
-                VisionCommands.aimBarrelAtHub(
-                    drive, Units.inchesToMeters(138.0), Units.inchesToMeters(232.5)),
-            java.util.Set.of(drive)));
+            () -> VisionCommands.aimBarrelAtHub(drive, 3.09, 3.70), java.util.Set.of(drive)));
     // Rangefinder shot: read pose distance now, look up RPM, spin up and fire once
     NamedCommands.registerCommand(
         "Rangefinder Shot",
@@ -186,9 +216,11 @@ public class RobotContainer {
                   isRed
                       ? frc.robot.FieldConstants.Hub.oppCenterPoint
                       : frc.robot.FieldConstants.Hub.centerPoint;
+              edu.wpi.first.math.geometry.Translation2d barrelPos =
+                  VisionCommands.getBarrelWorldPosition(robotPose);
               double dist =
                   Math.hypot(
-                      hubTarget.getX() - robotPose.getX(), hubTarget.getY() - robotPose.getY());
+                      hubTarget.getX() - barrelPos.getX(), hubTarget.getY() - barrelPos.getY());
               double rpm = ShootingConstants.getFlywheelRPM(dist);
               return Commands.sequence(
                   Commands.runOnce(() -> launcher.setTargetRpm(rpm), launcher),
@@ -201,6 +233,19 @@ public class RobotContainer {
                   Commands.runOnce(indexer::stop, indexer));
             },
             java.util.Set.of(drive, launcher, indexer)));
+    // Press against human player station wall — deploy intake + run rollers while driving back
+    NamedCommands.registerCommand(
+        "Press Against Wall",
+        Commands.parallel(
+            DriveCommands.pressAgainstHumanPlayerStation(drive, 0.5, 1.5),
+            Commands.sequence(
+                Commands.runOnce(
+                    () -> {
+                      intake.setTargetPosition(
+                          frc.robot.subsystems.intake.IntakeConstants.kIntakePivotDeployedPosition);
+                      intake.run();
+                    },
+                    intake))));
 
     // Log that commands are registered
     System.err.println("[RobotContainer] ===== Named Commands Registered =====");
@@ -210,6 +255,7 @@ public class RobotContainer {
     System.err.println("[RobotContainer] - Setup and Shoot");
     System.err.println("[RobotContainer] - Aim Barrel at Hub");
     System.err.println("[RobotContainer] - Rangefinder Shot");
+    System.err.println("[RobotContainer] - Press Against Wall");
     System.err.flush();
 
     // Set up auto routines
@@ -326,11 +372,7 @@ public class RobotContainer {
         .onFalse(Commands.runOnce(intake::stopWiggle, intake));
 
     // X button: Hold to aim barrel at hub (pose-based, tag-to-robot geometry)
-    controller
-        .x()
-        .whileTrue(
-            VisionCommands.aimBarrelAtHub(
-                drive, Units.inchesToMeters(138.0), Units.inchesToMeters(232.5)));
+    controller.x().whileTrue(VisionCommands.aimBarrelAtHub(drive, 3.09, 3.70));
 
     // D-Pad Up: Full shooting sequence — align barrel, enforce distance, spin up, fire
     controller
@@ -347,7 +389,7 @@ public class RobotContainer {
         .onTrue(
             Commands.runOnce(
                 () -> {
-                  // Use odometry pose for distance — matches how the lookup table was calibrated.
+                  // Use barrel-to-hub distance — matches how the lookup table is calibrated.
                   // Falls back to short-shot RPM if alliance is unknown.
                   Pose2d robotPose = drive.getPose();
                   boolean isRed =
@@ -358,11 +400,13 @@ public class RobotContainer {
                       isRed
                           ? frc.robot.FieldConstants.Hub.oppCenterPoint
                           : frc.robot.FieldConstants.Hub.centerPoint;
+                  edu.wpi.first.math.geometry.Translation2d barrelPos =
+                      VisionCommands.getBarrelWorldPosition(robotPose);
                   double dist =
                       Math.hypot(
-                          hubTarget.getX() - robotPose.getX(), hubTarget.getY() - robotPose.getY());
+                          hubTarget.getX() - barrelPos.getX(), hubTarget.getY() - barrelPos.getY());
                   double rpm = ShootingConstants.getFlywheelRPM(dist);
-                  System.err.printf("[RANGEFINDER] Pose dist: %.3f m → RPM: %.0f%n", dist, rpm);
+                  System.err.printf("[RANGEFINDER] Barrel dist: %.3f m → RPM: %.0f%n", dist, rpm);
                   launcher.setTargetRpm(rpm);
                   launcher.spinUp();
                 },
@@ -410,5 +454,23 @@ public class RobotContainer {
    */
   public Command getAutonomousCommand() {
     return autoChooser.get();
+  }
+
+  /** Called every robot loop. Publishes live shooting telemetry to SmartDashboard. */
+  public void periodic() {
+    Pose2d robotPose = drive.getPose();
+    boolean isRed =
+        DriverStation.getAlliance().map(a -> a == DriverStation.Alliance.Red).orElse(false);
+    edu.wpi.first.math.geometry.Translation2d hubTarget =
+        isRed ? FieldConstants.Hub.oppCenterPoint : FieldConstants.Hub.centerPoint;
+    edu.wpi.first.math.geometry.Translation2d barrelPos =
+        VisionCommands.getBarrelWorldPosition(robotPose);
+    double distToHub =
+        Math.hypot(hubTarget.getX() - barrelPos.getX(), hubTarget.getY() - barrelPos.getY());
+    double lookupRPM = ShootingConstants.getFlywheelRPM(distToHub);
+
+    SmartDashboard.putNumber("Shooting/Distance to Hub (m)", distToHub);
+    SmartDashboard.putNumber("Shooting/Distance to Hub (in)", Units.metersToInches(distToHub));
+    SmartDashboard.putNumber("Shooting/Lookup RPM", lookupRPM);
   }
 }

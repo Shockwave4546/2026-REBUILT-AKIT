@@ -202,4 +202,12 @@ public class Launcher extends SubsystemBase {
   public double getTargetRpm() {
     return targetRpm;
   }
+
+  /**
+   * @return true once the feeder has fired (latched on after RPM + feeder both active). Reset by
+   *     stop(). Use in auto to detect when a shot has been committed.
+   */
+  public boolean isFeederLatched() {
+    return feederLatched;
+  }
 }

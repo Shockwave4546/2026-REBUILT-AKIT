@@ -1,0 +1,49 @@
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "path",
+          "data": {
+            "pathName": "CenterToHP"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Press Against Wall"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 1.5
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "HPtoCenter"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Aim Barrel At Hub"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Rangefinder Shot"
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": true,
+  "folder": null,
+  "choreoAuto": false
+}
