@@ -300,11 +300,9 @@ public class DriveCommands {
       Drive drive, double speedMetersPerSec, double durationSecs) {
     return Commands.run(
             () -> {
-              boolean isRed = DriverStation.getAlliance().map(a -> a == Alliance.Red).orElse(false);
-              // Blue alliance wall is at X=0 → drive in -X direction.
-              // Red alliance wall is at X=fieldLength → drive in +X direction.
-              double vx = isRed ? speedMetersPerSec : -speedMetersPerSec;
-              drive.runVelocity(new ChassisSpeeds(vx, 0.0, 0.0));
+              // Robot always ends the path facing away from the wall, so drive robot-relative
+              // -X to press against it. PathPlanner handles alliance mirroring automatically.
+              drive.runVelocity(new ChassisSpeeds(-speedMetersPerSec, 0.0, 0.0));
             },
             drive)
         .withTimeout(durationSecs)
