@@ -177,6 +177,10 @@ public class RobotContainer {
     // Register named commands for PathPlanner BEFORE building auto chooser
     // Use Suppliers to create new command instances each time they're called
     NamedCommands.registerCommand(
+        "Disable Vision", Commands.runOnce(() -> vision.setEnabled(false)));
+    NamedCommands.registerCommand(
+        "Enable Vision", Commands.runOnce(() -> vision.setEnabled(true)));
+    NamedCommands.registerCommand(
         "Spin 360", Commands.defer(() -> VisionCommands.spin360(drive), java.util.Set.of(drive)));
     NamedCommands.registerCommand(
         "Align to Hub",
@@ -255,10 +259,12 @@ public class RobotContainer {
                   Commands.runOnce(launcher::spinUp, launcher),
                   Commands.waitUntil(launcher::isAtTargetRpm),
                   Commands.runOnce(indexer::run, indexer),
+                  Commands.runOnce(intake::startWiggle, intake),
                   Commands.runOnce(launcher::run, launcher),
-                  Commands.waitSeconds(1.0),
+                  Commands.waitSeconds(10.0),
                   Commands.runOnce(launcher::stop, launcher),
-                  Commands.runOnce(indexer::stop, indexer));
+                  Commands.runOnce(indexer::stop, indexer),
+                  Commands.runOnce(intake::stopWiggle, intake));
             },
             java.util.Set.of(drive, launcher, indexer)));
     // Press against human player station wall — deploy intake + run rollers while driving back
@@ -614,7 +620,17 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    return autoChooser.get();
+    // Always start with vision enabled, and re-enable if the auto ends or is interrupted.
+    // This means "Disable Vision" named commands only last for the duration of that auto.
+    return autoChooser
+        .get()
+        .beforeStarting(() -> vision.setEnabled(true))
+        .finallyDo(() -> vision.setEnabled(true));
+  }
+
+  /** Re-enables vision pose estimation. Called from teleopInit to guarantee vision is on. */
+  public void enableVision() {
+    vision.setEnabled(true);
   }
 
   /** Called every robot loop. Publishes live shooting telemetry to SmartDashboard. */

@@ -29,6 +29,7 @@ public class Vision extends SubsystemBase {
   private final VisionIO[] io;
   private final VisionIOInputsAutoLogged[] inputs;
   private final Alert[] disconnectedAlerts;
+  private boolean enabled = true;
 
   public Vision(VisionConsumer consumer, VisionIO... io) {
     this.consumer = consumer;
@@ -47,6 +48,17 @@ public class Vision extends SubsystemBase {
           new Alert(
               "Vision camera " + Integer.toString(i) + " is disconnected.", AlertType.kWarning);
     }
+  }
+
+  /**
+   * Enables or disables vision pose estimation. When disabled, camera inputs are still processed
+   * (for logging/targeting) but pose observations are not sent to the drive odometry.
+   *
+   * @param enabled true to use April Tag pose estimates, false to ignore them
+   */
+  public void setEnabled(boolean enabled) {
+    this.enabled = enabled;
+    Logger.recordOutput("Vision/Enabled", enabled);
   }
 
   /**
@@ -156,6 +168,7 @@ public class Vision extends SubsystemBase {
         }
 
         // Send vision observation
+        if (!enabled) continue;
         consumer.accept(
             observation.pose().toPose2d(),
             observation.timestamp(),

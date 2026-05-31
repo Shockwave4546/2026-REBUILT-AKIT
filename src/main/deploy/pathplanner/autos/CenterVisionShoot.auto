@@ -5,21 +5,27 @@
     "data": {
       "commands": [
         {
+          "type": "path",
+          "data": {
+            "pathName": "CenterBackupVision"
+          }
+        },
+        {
           "type": "named",
           "data": {
             "name": "Lower Intake"
           }
         },
         {
-          "type": "path",
+          "type": "named",
           "data": {
-            "pathName": "dotright"
+            "name": "Aim Barrel at Hub"
           }
         },
         {
           "type": "named",
           "data": {
-            "name": "Hold Right Dot"
+            "name": "Rangefinder Shot"
           }
         }
       ]

@@ -5,9 +5,21 @@
     "data": {
       "commands": [
         {
+          "type": "named",
+          "data": {
+            "name": "Disable Vision"
+          }
+        },
+        {
           "type": "path",
           "data": {
             "pathName": "centershoot"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Enable Vision"
           }
         },
         {

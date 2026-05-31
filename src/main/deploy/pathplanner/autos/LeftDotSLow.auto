@@ -7,6 +7,12 @@
         {
           "type": "named",
           "data": {
+            "name": "Disable Vision"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
             "name": "Lower Intake"
           }
         },
@@ -14,6 +20,12 @@
           "type": "path",
           "data": {
             "pathName": "LEftDotSlow"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Enable Vision"
           }
         }
       ]

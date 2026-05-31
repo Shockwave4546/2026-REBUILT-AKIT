@@ -151,6 +151,10 @@ public class Robot extends LoggedRobot {
     if (autonomousCommand != null) {
       autonomousCommand.cancel();
     }
+
+    // Always re-enable vision when entering teleop, in case it was disabled during auto
+    // (e.g., if auto was stopped early before a "Enable Vision" command ran).
+    robotContainer.enableVision();
   }
 
   /** This function is called periodically during operator control. */
