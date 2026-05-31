@@ -19,7 +19,7 @@ public class ShootingConstants {
    * positive value if the robot consistently undershoots (acts closer than it is), negative if it
    * overshoots. Start at 0.0 and tune in small increments (~0.05 m).
    */
-  public static double kDistanceOffsetMeters = 0.0;
+  public static double kDistanceOffsetMeters = .6; // .5m offset for softer fuel at wpi
 
   /**
    * RPM multiplier. Applied to the interpolated RPM from the lookup table. Use > 1.0 for

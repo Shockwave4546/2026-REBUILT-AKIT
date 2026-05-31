@@ -75,6 +75,17 @@ public class Robot extends LoggedRobot {
     // Instantiate our RobotContainer. This will perform all our button bindings,
     // and put our autonomous chooser on the dashboard.
     robotContainer = new RobotContainer();
+
+    // Log the actual tag 26 X position so we can verify hub center offset
+    var layout = frc.robot.subsystems.vision.VisionConstants.aprilTagLayout;
+    layout
+        .getTagPose(26)
+        .ifPresent(
+            pose ->
+                System.out.printf(
+                    "[FieldConstants] Tag 26 X from layout: %.4f m (we hardcode 4.5, hub center = %.4f)%n",
+                    pose.getX(),
+                    pose.getX() + frc.robot.FieldConstants.LinesVertical.kTagToHubCenterM));
   }
 
   /** This function is called periodically during all modes. */

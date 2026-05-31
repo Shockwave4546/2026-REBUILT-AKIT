@@ -33,8 +33,8 @@ public final class LauncherConstants {
 
   // Shooter target RPM
   public static final double kShooterTargetRpm = 4000.0;
-  public static final double kShooterShortRpm = 2700.0; // Tunable during matches
-  public static final double kShooterLongRpm = 3100.0; // Tunable during matches
+  public static final double kShooterShortRpm = 2800.0; // Tunable during matches
+  public static final double kShooterLongRpm = 3200.0; // Tunable during matches
 
   // Shooter PID/FF coefficients (RoboRIO-side control)
   public static final double kP_Shooter = 0.0025;
@@ -46,4 +46,15 @@ public final class LauncherConstants {
 
   // Tolerance for "at target RPM" (RPM)
   public static final double kRpmTolerance = 100.0;
+
+  // Shooter wheel radius (for FuelSim launch velocity calculation)
+  // NEO Vortex driving a 4in diameter (2in radius) shooter wheel
+  public static final double kShooterWheelRadiusM =
+      edu.wpi.first.math.util.Units.inchesToMeters(2.0);
+
+  // Barrel height above ground (for FuelSim launch position)
+  public static final double kBarrelHeightM = edu.wpi.first.math.util.Units.inchesToMeters(24.0);
+
+  // Fixed hood angle — shooter launches at ~30° above horizontal
+  public static final double kHoodAngleRad = Math.toRadians(30.0);
 }

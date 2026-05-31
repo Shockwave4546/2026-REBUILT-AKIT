@@ -70,6 +70,12 @@ public class RobotContainer {
   private final Indexer indexer;
   private final Launcher launcher;
 
+  // Fuel simulation (sim only, null on real robot)
+  private final frc.robot.util.FuelSim fuelSim;
+  private boolean prevFeederLatched = false; // edge-detect for sim ball launch
+  private int simBallCount = 0; // how many balls the robot is currently holding
+  private static final int SIM_BALL_CAPACITY = 5; // hopper capacity
+
   // Controller
   private final CommandXboxController controller = new CommandXboxController(0);
 
@@ -109,6 +115,7 @@ public class RobotContainer {
                     LauncherConstants.kFeederMotorCanId,
                     LauncherConstants.kShooterLeaderCanId,
                     LauncherConstants.kShooterFollowerCanId));
+        fuelSim = null;
         break;
 
       case SIM:
@@ -128,6 +135,26 @@ public class RobotContainer {
         intake = new Intake(new IntakeIOSim());
         indexer = new Indexer(new IndexerIOSim());
         launcher = new Launcher(new LauncherIOSim());
+
+        // Set up fuel simulation
+        fuelSim = new frc.robot.util.FuelSim("/Fuel Simulation");
+        fuelSim.registerRobot(
+            frc.robot.subsystems.drive.DriveConstants.trackWidth
+                + edu.wpi.first.math.util.Units.inchesToMeters(8), // width + 4in bumpers each side
+            frc.robot.subsystems.drive.DriveConstants.wheelBase
+                + edu.wpi.first.math.util.Units.inchesToMeters(8), // length + 4in bumpers each side
+            edu.wpi.first.math.util.Units.inchesToMeters(5), // bumper height
+            drive::getPose,
+            drive::getFieldRelativeSpeeds);
+        fuelSim.registerIntake(
+            0.15, // start ~15cm in front of robot center (behind bumper face)
+            0.65, // reach ~25cm past bumper face (intake arm extension)
+            -0.35, // full robot width (left)
+            0.35, // full robot width (right)
+            () -> intake.isRollerRunning() && simBallCount < SIM_BALL_CAPACITY,
+            () -> simBallCount++);
+        fuelSim.spawnStartingFuel();
+        fuelSim.start();
         break;
 
       default:
@@ -143,6 +170,7 @@ public class RobotContainer {
         intake = new Intake(new IntakeIO() {});
         indexer = new Indexer(new IndexerIO() {});
         launcher = new Launcher(new LauncherIO() {});
+        fuelSim = null;
         break;
     }
 
@@ -247,6 +275,124 @@ public class RobotContainer {
                     },
                     intake))));
 
+    // Lower intake
+    NamedCommands.registerCommand(
+        "Lower Intake",
+        Commands.sequence(
+            Commands.runOnce(
+                () -> {
+                  intake.setTargetPosition(IntakeConstants.kIntakePivotDeployedPosition);
+                  intake.run();
+                },
+                intake),
+            Commands.waitUntil(intake::isDeployed).withTimeout(2.0)));
+
+    // Hold position on dot
+    NamedCommands.registerCommand(
+        "Hold Left Dot",
+        // Defer so the target pose is captured AFTER the path ends (works for both alliances)
+        Commands.defer(
+            () -> {
+              Pose2d holdTarget = drive.getPose();
+              return Commands.run(
+                  () -> {
+                    final double kP = 2.5;
+                    final double kPTheta = 4.0;
+                    final double maxSpeed = 2.0;
+                    Pose2d current = drive.getPose();
+                    double errX = holdTarget.getX() - current.getX();
+                    double errY = holdTarget.getY() - current.getY();
+                    double errTheta =
+                        holdTarget.getRotation().minus(current.getRotation()).getRadians();
+                    double vxField = Math.max(-maxSpeed, Math.min(maxSpeed, kP * errX));
+                    double vyField = Math.max(-maxSpeed, Math.min(maxSpeed, kP * errY));
+                    double heading = current.getRotation().getRadians();
+                    double vxRobot = vxField * Math.cos(heading) + vyField * Math.sin(heading);
+                    double vyRobot = -vxField * Math.sin(heading) + vyField * Math.cos(heading);
+                    drive.runVelocity(
+                        new edu.wpi.first.math.kinematics.ChassisSpeeds(
+                            vxRobot, vyRobot, kPTheta * errTheta));
+                    Logger.recordOutput("HoldLeftDot/TargetPose", holdTarget);
+                    Logger.recordOutput("HoldLeftDot/CurrentPose", current);
+                    Logger.recordOutput("HoldLeftDot/ErrorX_m", errX);
+                    Logger.recordOutput("HoldLeftDot/ErrorY_m", errY);
+                    Logger.recordOutput("HoldLeftDot/ErrorDistance_m", Math.hypot(errX, errY));
+                    Logger.recordOutput("HoldLeftDot/ErrorTheta_deg", Math.toDegrees(errTheta));
+                    Logger.recordOutput("HoldLeftDot/VxRobot_mps", vxRobot);
+                    Logger.recordOutput("HoldLeftDot/VyRobot_mps", vyRobot);
+                  },
+                  drive);
+            },
+            java.util.Set.of(drive)));
+
+    // Hold position on right dot (mirrored: y = 8.04 - 7.418 = 0.622)
+    NamedCommands.registerCommand(
+        "Hold Right Dot",
+        // Defer so the target pose is captured AFTER the path ends (works for both alliances)
+        Commands.defer(
+            () -> {
+              Pose2d holdTarget = drive.getPose(); // capture where the path left us
+              return Commands.run(
+                  () -> {
+                    final double kP = 2.5;
+                    final double kPTheta = 4.0;
+                    final double maxSpeed = 2.0;
+                    Pose2d current = drive.getPose();
+                    double errX = holdTarget.getX() - current.getX();
+                    double errY = holdTarget.getY() - current.getY();
+                    double errTheta =
+                        holdTarget.getRotation().minus(current.getRotation()).getRadians();
+                    double vxField = Math.max(-maxSpeed, Math.min(maxSpeed, kP * errX));
+                    double vyField = Math.max(-maxSpeed, Math.min(maxSpeed, kP * errY));
+                    double heading = current.getRotation().getRadians();
+                    double vxRobot = vxField * Math.cos(heading) + vyField * Math.sin(heading);
+                    double vyRobot = -vxField * Math.sin(heading) + vyField * Math.cos(heading);
+                    drive.runVelocity(
+                        new edu.wpi.first.math.kinematics.ChassisSpeeds(
+                            vxRobot, vyRobot, kPTheta * errTheta));
+                    Logger.recordOutput("HoldRightDot/TargetPose", holdTarget);
+                    Logger.recordOutput("HoldRightDot/CurrentPose", current);
+                    Logger.recordOutput("HoldRightDot/ErrorX_m", errX);
+                    Logger.recordOutput("HoldRightDot/ErrorY_m", errY);
+                    Logger.recordOutput("HoldRightDot/ErrorDistance_m", Math.hypot(errX, errY));
+                    Logger.recordOutput("HoldRightDot/ErrorTheta_deg", Math.toDegrees(errTheta));
+                    Logger.recordOutput("HoldRightDot/VxRobot_mps", vxRobot);
+                    Logger.recordOutput("HoldRightDot/VyRobot_mps", vyRobot);
+                  },
+                  drive);
+            },
+            java.util.Set.of(drive)));
+
+    // Shoot Long: spin up to long-shot RPM, fire for 10s, then stop
+    NamedCommands.registerCommand(
+        "Shoot Long",
+        Commands.sequence(
+            Commands.runOnce(
+                () ->
+                    launcher.setTargetRpm(
+                        SmartDashboard.getNumber(
+                            "Launcher/Long Shot RPM", LauncherConstants.kShooterLongRpm)),
+                launcher),
+            Commands.runOnce(launcher::spinUp, launcher),
+            Commands.waitUntil(launcher::isAtTargetRpm).withTimeout(5.0),
+            Commands.runOnce(intake::startWiggle, intake),
+            Commands.run(
+                    () -> {
+                      launcher.run();
+                      indexer.run();
+                    },
+                    launcher,
+                    indexer)
+                .withTimeout(10.0),
+            Commands.runOnce(
+                () -> {
+                  launcher.stop();
+                  indexer.stop();
+                  intake.stopWiggle();
+                },
+                launcher,
+                indexer)));
+
     // Log that commands are registered
     System.err.println("[RobotContainer] ===== Named Commands Registered =====");
     System.err.println("[RobotContainer] - Spin 360");
@@ -256,6 +402,10 @@ public class RobotContainer {
     System.err.println("[RobotContainer] - Aim Barrel at Hub");
     System.err.println("[RobotContainer] - Rangefinder Shot");
     System.err.println("[RobotContainer] - Press Against Wall");
+    System.err.println("[RobotContainer] - Lower Intake");
+    System.err.println("[RobotContainer] - Hold Left Dot");
+    System.err.println("[RobotContainer] - Hold Right Dot");
+    System.err.println("[RobotContainer] - Shoot Long");
     System.err.flush();
 
     // Set up auto routines
@@ -298,9 +448,9 @@ public class RobotContainer {
     drive.setDefaultCommand(
         DriveCommands.joystickDrive(
             drive,
-            () -> -controller.getLeftY(),
-            () -> -controller.getLeftX(),
-            () -> -controller.getRightX()));
+            () -> -controller.getLeftY() * 0.8,
+            () -> -controller.getLeftX() * 0.8,
+            () -> -controller.getRightX() * 0.8));
 
     // A button: Toggle deploy/retract intake
     controller
@@ -319,15 +469,9 @@ public class RobotContainer {
                 },
                 intake));
 
-    // Left bumper: Spin intake reverse (unjam)
+    // Left Trigger: Short shot - read RPM from HUD
     controller
-        .leftBumper()
-        .onTrue(Commands.runOnce(intake::runReverse, intake))
-        .onFalse(Commands.runOnce(intake::stop, intake));
-
-    // Right bumper: Short shot - read RPM from HUD
-    controller
-        .rightBumper()
+        .leftTrigger()
         .onTrue(
             Commands.sequence(
                 Commands.runOnce(
@@ -339,15 +483,17 @@ public class RobotContainer {
                 Commands.runOnce(launcher::spinUp, launcher),
                 Commands.waitUntil(launcher::isAtTargetRpm),
                 Commands.runOnce(indexer::run, indexer),
+                Commands.runOnce(intake::startWiggle, intake),
                 Commands.runOnce(launcher::run, launcher)))
         .onFalse(
             Commands.sequence(
                 Commands.runOnce(launcher::stop, launcher),
+                Commands.runOnce(intake::stopWiggle, intake),
                 Commands.runOnce(indexer::stop, indexer)));
 
-    // Left trigger: Long shot - read RPM from HUD
+    // Left Bumper: Long shot - read RPM from HUD
     controller
-        .leftTrigger()
+        .leftBumper()
         .onTrue(
             Commands.sequence(
                 Commands.runOnce(
@@ -359,33 +505,17 @@ public class RobotContainer {
                 Commands.runOnce(launcher::spinUp, launcher),
                 Commands.waitUntil(launcher::isAtTargetRpm),
                 Commands.runOnce(indexer::run, indexer),
+                Commands.runOnce(intake::startWiggle, intake),
                 Commands.runOnce(launcher::run, launcher)))
         .onFalse(
             Commands.sequence(
                 Commands.runOnce(launcher::stop, launcher),
+                Commands.runOnce(intake::stopWiggle, intake),
                 Commands.runOnce(indexer::stop, indexer)));
 
-    // Right trigger: Wiggle intake to shuffle pieces into indexer
+    // Right trigger: Vision Shoot
     controller
         .rightTrigger()
-        .onTrue(Commands.runOnce(intake::startWiggle, intake))
-        .onFalse(Commands.runOnce(intake::stopWiggle, intake));
-
-    // X button: Hold to aim barrel at hub (pose-based, tag-to-robot geometry)
-    controller.x().whileTrue(VisionCommands.aimBarrelAtHub(drive, 3.09, 3.70));
-
-    // D-Pad Up: Full shooting sequence — align barrel, enforce distance, spin up, fire
-    controller
-        .povUp()
-        .whileTrue(
-            Commands.defer(
-                () -> VisionCommands.setupAndShoot(drive, launcher, indexer),
-                java.util.Set.of(drive, launcher, indexer)));
-
-    // D-Pad Down: Rangefinder shot — compute robot-center-to-hub distance from odometry on press,
-    // look up RPM, spin up and fire. Uses whileTrue so holding keeps shooter running.
-    controller
-        .povDown()
         .onTrue(
             Commands.runOnce(
                 () -> {
@@ -415,17 +545,48 @@ public class RobotContainer {
             Commands.sequence(
                 Commands.waitUntil(launcher::isAtTargetRpm),
                 Commands.runOnce(indexer::run, indexer),
+                Commands.runOnce(intake::startWiggle, intake),
                 Commands.runOnce(launcher::run, launcher),
                 Commands.run(() -> {}, launcher, indexer))) // hold until button released
         .onFalse(
             Commands.sequence(
                 Commands.runOnce(launcher::stop, launcher),
+                Commands.runOnce(intake::stopWiggle, intake),
                 Commands.runOnce(indexer::stop, indexer)));
 
-    // B button: Hold to align barrel to hub using global field pose (alignToHub)
+    // D-Pad Up: Full shooting sequence — align barrel, enforce distance, spin up, fire
+    controller
+        .povUp()
+        .whileTrue(
+            Commands.defer(
+                () -> VisionCommands.setupAndShoot(drive, launcher, indexer),
+                java.util.Set.of(drive, launcher, indexer)));
+
+    // Right Bumper: Vision Align to Hub
+    controller.rightBumper().whileTrue(VisionCommands.aimBarrelAtHub(drive, 3.09, 3.70));
+
+    // x button: Hold to align barrel to hub using global field pose (alignToHub)
+    controller
+        .x()
+        .whileTrue(Commands.defer(() -> VisionCommands.alignToHub(drive), java.util.Set.of(drive)));
+
+    // B button: Spin intake reverse (unjam)
     controller
         .b()
-        .whileTrue(Commands.defer(() -> VisionCommands.alignToHub(drive), java.util.Set.of(drive)));
+        .onTrue(Commands.runOnce(intake::runReverse, intake))
+        .onFalse(Commands.runOnce(intake::stop, intake));
+
+    // Dpad down: Wiggle intake to shuffle pieces into indexer
+    controller
+        .povDown()
+        .onTrue(Commands.runOnce(intake::startWiggle, intake))
+        .onFalse(Commands.runOnce(intake::stopWiggle, intake));
+
+    // y button: Spin indexer reverse
+    controller
+        .y()
+        .onTrue(Commands.runOnce(indexer::runReverse, indexer))
+        .onFalse(Commands.runOnce(indexer::stop, indexer));
 
     // Start button: Zero gyro heading — 0° on blue (facing red wall), 180° on red (facing blue
     // wall)
@@ -472,5 +633,27 @@ public class RobotContainer {
     SmartDashboard.putNumber("Shooting/Distance to Hub (m)", distToHub);
     SmartDashboard.putNumber("Shooting/Distance to Hub (in)", Units.metersToInches(distToHub));
     SmartDashboard.putNumber("Shooting/Lookup RPM", lookupRPM);
+
+    // Step fuel simulation and handle shooting/intake (sim only)
+    if (fuelSim != null) {
+      // Spawn a ball when the feeder first latches (rising edge = shot fired)
+      boolean feederLatched = launcher.isFeederLatched();
+      if (feederLatched && !prevFeederLatched && simBallCount > 0) {
+        simBallCount--;
+        double rpm = launcher.getShooterRpm();
+        double wheelCircumference =
+            2.0 * Math.PI * frc.robot.subsystems.launcher.LauncherConstants.kShooterWheelRadiusM;
+        double launchSpeedMps = (rpm / 60.0) * wheelCircumference;
+        fuelSim.launchFuel(
+            edu.wpi.first.units.Units.MetersPerSecond.of(launchSpeedMps),
+            edu.wpi.first.units.Units.Radians.of(
+                frc.robot.subsystems.launcher.LauncherConstants.kHoodAngleRad),
+            edu.wpi.first.units.Units.Radians.of(0.0), // fixed turret, straight ahead
+            edu.wpi.first.units.Units.Meters.of(
+                frc.robot.subsystems.launcher.LauncherConstants.kBarrelHeightM));
+      }
+      prevFeederLatched = feederLatched;
+      fuelSim.updateSim();
+    }
   }
 }
