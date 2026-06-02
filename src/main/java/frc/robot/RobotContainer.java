@@ -178,8 +178,7 @@ public class RobotContainer {
     // Use Suppliers to create new command instances each time they're called
     NamedCommands.registerCommand(
         "Disable Vision", Commands.runOnce(() -> vision.setEnabled(false)));
-    NamedCommands.registerCommand(
-        "Enable Vision", Commands.runOnce(() -> vision.setEnabled(true)));
+    NamedCommands.registerCommand("Enable Vision", Commands.runOnce(() -> vision.setEnabled(true)));
     NamedCommands.registerCommand(
         "Spin 360", Commands.defer(() -> VisionCommands.spin360(drive), java.util.Set.of(drive)));
     NamedCommands.registerCommand(
@@ -399,6 +398,36 @@ public class RobotContainer {
                 launcher,
                 indexer)));
 
+    // Shoot Short: spin up to short-shot RPM, fire for 10s, then stop
+    NamedCommands.registerCommand(
+        "Shoot Short",
+        Commands.sequence(
+            Commands.runOnce(
+                () ->
+                    launcher.setTargetRpm(
+                        SmartDashboard.getNumber(
+                            "Launcher/Short Shot RPM", LauncherConstants.kShooterShortRpm)),
+                launcher),
+            Commands.runOnce(launcher::spinUp, launcher),
+            Commands.waitUntil(launcher::isAtTargetRpm).withTimeout(5.0),
+            Commands.runOnce(intake::startWiggle, intake),
+            Commands.run(
+                    () -> {
+                      launcher.run();
+                      indexer.run();
+                    },
+                    launcher,
+                    indexer)
+                .withTimeout(10.0),
+            Commands.runOnce(
+                () -> {
+                  launcher.stop();
+                  indexer.stop();
+                  intake.stopWiggle();
+                },
+                launcher,
+                indexer)));
+
     // Log that commands are registered
     System.err.println("[RobotContainer] ===== Named Commands Registered =====");
     System.err.println("[RobotContainer] - Spin 360");
@@ -412,6 +441,7 @@ public class RobotContainer {
     System.err.println("[RobotContainer] - Hold Left Dot");
     System.err.println("[RobotContainer] - Hold Right Dot");
     System.err.println("[RobotContainer] - Shoot Long");
+    System.err.println("[RobotContainer] - Shoot Short");
     System.err.flush();
 
     // Set up auto routines
@@ -422,6 +452,11 @@ public class RobotContainer {
         .withPosition(0, 0);
 
     Logger.recordOutput("RobotContainer/CommandsRegistered", true);
+
+    // Publish drive speed multiplier to SmartDashboard — edit this in the dashboard to limit speed
+    SmartDashboard.putNumber("Drive/Speed Multiplier", 1.0);
+    // Demo mode — set to true on the dashboard to disable auto-drive buttons (barrel align, etc.)
+    SmartDashboard.putBoolean("Drive/Demo Mode", false);
 
     // Set up SysId routines
     autoChooser.addOption(
@@ -454,9 +489,18 @@ public class RobotContainer {
     drive.setDefaultCommand(
         DriveCommands.joystickDrive(
             drive,
-            () -> -controller.getLeftY() * 0.8,
-            () -> -controller.getLeftX() * 0.8,
-            () -> -controller.getRightX() * 0.8));
+            () ->
+                -controller.getLeftY()
+                    * 0.8
+                    * SmartDashboard.getNumber("Drive/Speed Multiplier", 1.0),
+            () ->
+                -controller.getLeftX()
+                    * 0.8
+                    * SmartDashboard.getNumber("Drive/Speed Multiplier", 1.0),
+            () ->
+                -controller.getRightX()
+                    * 0.8
+                    * SmartDashboard.getNumber("Drive/Speed Multiplier", 1.0)));
 
     // A button: Toggle deploy/retract intake
     controller
@@ -519,9 +563,10 @@ public class RobotContainer {
                 Commands.runOnce(intake::stopWiggle, intake),
                 Commands.runOnce(indexer::stop, indexer)));
 
-    // Right trigger: Vision Shoot
+    // Right trigger: Vision Shoot (disabled in demo mode — rangefinder RPM can overshoot for kids)
     controller
         .rightTrigger()
+        .and(() -> !SmartDashboard.getBoolean("Drive/Demo Mode", false))
         .onTrue(
             Commands.runOnce(
                 () -> {
@@ -561,19 +606,25 @@ public class RobotContainer {
                 Commands.runOnce(indexer::stop, indexer)));
 
     // D-Pad Up: Full shooting sequence — align barrel, enforce distance, spin up, fire
+    // (disabled in demo mode)
     controller
         .povUp()
+        .and(() -> !SmartDashboard.getBoolean("Drive/Demo Mode", false))
         .whileTrue(
             Commands.defer(
                 () -> VisionCommands.setupAndShoot(drive, launcher, indexer),
                 java.util.Set.of(drive, launcher, indexer)));
 
-    // Right Bumper: Vision Align to Hub
-    controller.rightBumper().whileTrue(VisionCommands.aimBarrelAtHub(drive, 3.09, 3.70));
+    // Right Bumper: Vision Align to Hub (disabled in demo mode)
+    controller
+        .rightBumper()
+        .and(() -> !SmartDashboard.getBoolean("Drive/Demo Mode", false))
+        .whileTrue(VisionCommands.aimBarrelAtHub(drive, 3.09, 3.70));
 
-    // x button: Hold to align barrel to hub using global field pose (alignToHub)
+    // x button: Hold to align barrel to hub using global field pose (disabled in demo mode)
     controller
         .x()
+        .and(() -> !SmartDashboard.getBoolean("Drive/Demo Mode", false))
         .whileTrue(Commands.defer(() -> VisionCommands.alignToHub(drive), java.util.Set.of(drive)));
 
     // B button: Spin intake reverse (unjam)
@@ -620,12 +671,7 @@ public class RobotContainer {
    * @return the command to run in autonomous
    */
   public Command getAutonomousCommand() {
-    // Always start with vision enabled, and re-enable if the auto ends or is interrupted.
-    // This means "Disable Vision" named commands only last for the duration of that auto.
-    return autoChooser
-        .get()
-        .beforeStarting(() -> vision.setEnabled(true))
-        .finallyDo(() -> vision.setEnabled(true));
+    return autoChooser.get();
   }
 
   /** Re-enables vision pose estimation. Called from teleopInit to guarantee vision is on. */
