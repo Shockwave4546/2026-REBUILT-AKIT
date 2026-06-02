@@ -27,6 +27,12 @@
           "data": {
             "name": "Enable Vision"
           }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "LEftLock"
+          }
         }
       ]
     }

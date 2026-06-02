@@ -5,21 +5,9 @@
     "data": {
       "commands": [
         {
-          "type": "named",
-          "data": {
-            "name": "Disable Vision"
-          }
-        },
-        {
           "type": "path",
           "data": {
-            "pathName": "centershoot"
-          }
-        },
-        {
-          "type": "named",
-          "data": {
-            "name": "Enable Vision"
+            "pathName": "RightVisionLineup"
           }
         },
         {
@@ -31,7 +19,13 @@
         {
           "type": "named",
           "data": {
-            "name": "Shoot Short"
+            "name": "Aim Barrel at Hub"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Rangefinder Shot"
           }
         }
       ]
