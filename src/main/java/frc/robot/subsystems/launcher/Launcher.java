@@ -32,8 +32,14 @@ public class Launcher extends SubsystemBase {
   private final LauncherIOInputs inputs = new LauncherIOInputs();
 
   // Shooter velocity control (RoboRIO-side)
-  private final SimpleMotorFeedforward shooterFF;
+  private SimpleMotorFeedforward shooterFF;
   private final PIDController shooterPID;
+
+  private static final String KEY_KP = "Launcher/Tuning/kP";
+  private static final String KEY_KI = "Launcher/Tuning/kI";
+  private static final String KEY_KD = "Launcher/Tuning/kD";
+  private static final String KEY_KS = "Launcher/Tuning/kS";
+  private static final String KEY_KV = "Launcher/Tuning/kV";
 
   private boolean isRunning = false;
   private boolean isSpinningUp = false;
@@ -60,7 +66,12 @@ public class Launcher extends SubsystemBase {
             LauncherConstants.kI_Shooter,
             LauncherConstants.kD_Shooter);
 
-    // Seed dashboard entries
+    // Seed dashboard entries (read back each loop for live tuning)
+    SmartDashboard.putNumber(KEY_KP, LauncherConstants.kP_Shooter);
+    SmartDashboard.putNumber(KEY_KI, LauncherConstants.kI_Shooter);
+    SmartDashboard.putNumber(KEY_KD, LauncherConstants.kD_Shooter);
+    SmartDashboard.putNumber(KEY_KS, LauncherConstants.kS_Shooter);
+    SmartDashboard.putNumber(KEY_KV, LauncherConstants.kV_Shooter);
     SmartDashboard.putNumber("Launcher/Short Shot RPM", LauncherConstants.kShooterShortRpm);
     SmartDashboard.putNumber("Launcher/Long Shot RPM", LauncherConstants.kShooterLongRpm);
   }
@@ -70,6 +81,16 @@ public class Launcher extends SubsystemBase {
     io.updateInputs(inputs);
     Logger.recordOutput("Launcher/ShooterRPM", inputs.shooterLeaderVelocityRPM);
     Logger.recordOutput("Launcher/FeederCurrent", inputs.feederCurrentAmps);
+
+    // Read live gain values from dashboard every loop
+    double kP = SmartDashboard.getNumber(KEY_KP, LauncherConstants.kP_Shooter);
+    double kI = SmartDashboard.getNumber(KEY_KI, LauncherConstants.kI_Shooter);
+    double kD = SmartDashboard.getNumber(KEY_KD, LauncherConstants.kD_Shooter);
+    double kS = SmartDashboard.getNumber(KEY_KS, LauncherConstants.kS_Shooter);
+    double kV = SmartDashboard.getNumber(KEY_KV, LauncherConstants.kV_Shooter);
+
+    shooterPID.setPID(kP, kI, kD);
+    shooterFF = new SimpleMotorFeedforward(kS, kV, LauncherConstants.kA_Shooter);
 
     // Update shooter control
     updateShooterControl();
