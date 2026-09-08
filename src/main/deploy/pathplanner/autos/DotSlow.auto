@@ -1,0 +1,43 @@
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "named",
+          "data": {
+            "name": "Disable Vision"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Lower Intake"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "DotSlow"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "RightLock"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Enable Vision"
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": true,
+  "folder": null,
+  "choreoAuto": false
+}

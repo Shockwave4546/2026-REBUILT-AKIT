@@ -47,11 +47,11 @@ public class LauncherIOSparkMax implements LauncherIO {
 
     shooterEncoder = shooterLeader.getEncoder();
 
-    // --- Shooter follower (Vortex on SparkFlex, inverted) ---
+    // --- Shooter follower (Vortex on SparkFlex, follows leader inverted) ---
     shooterFollower = new SparkFlex(shooterFollowerCanId, MotorType.kBrushless);
     SparkFlexConfig shooterFollowerConfig = new SparkFlexConfig();
     shooterFollowerConfig
-        .inverted(LauncherConstants.kShooterFollowerInverted)
+        .follow(shooterLeader, LauncherConstants.kShooterFollowerInverted)
         .idleMode(IdleMode.kCoast)
         .smartCurrentLimit(LauncherConstants.kShooterMotorCurrentLimit);
     shooterFollower.configure(
@@ -90,6 +90,6 @@ public class LauncherIOSparkMax implements LauncherIO {
   public void stop() {
     feederMotor.set(0.0);
     shooterLeader.set(0.0);
-    shooterFollower.set(0.0);
+    // follower tracks leader automatically via hardware follow
   }
 }

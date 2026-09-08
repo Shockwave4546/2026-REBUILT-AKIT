@@ -7,13 +7,25 @@
         {
           "type": "path",
           "data": {
-            "pathName": "MIdfieldLeft"
+            "pathName": "LEftVisionLineup"
           }
         },
         {
           "type": "named",
           "data": {
-            "name": "Setup and Shoot"
+            "name": "Lower Intake"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Aim Barrel at Hub"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Rangefinder Shot"
           }
         }
       ]

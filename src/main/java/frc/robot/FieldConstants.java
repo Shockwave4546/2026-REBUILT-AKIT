@@ -27,9 +27,13 @@ public class FieldConstants {
    */
   public static class LinesVertical {
     public static final double center = fieldLength / 2.0;
-    // Hub centers are approximately at these X positions (based on 2026 field layout)
-    public static final double hubCenter = 4.5; // Blue alliance hub center X 5.547
-    public static final double oppHubCenter = fieldLength - 4.5; // Red alliance hub center X 5.547
+    // Hub April tags are on the face nearest each alliance. The true hub center is 0.6035m deeper.
+    public static final double kTagToHubCenterM = 0.6035;
+    // Hub centers based on 2026 field layout — tag 26 near face is at X=4.5m.
+    // NOTE: keep this consistent with how the RPM lookup table was measured.
+    public static final double hubCenter = 4.5 + kTagToHubCenterM; // Blue alliance hub center
+    public static final double oppHubCenter =
+        fieldLength - 4.5 - kTagToHubCenterM; // Red alliance hub center
   }
 
   /**

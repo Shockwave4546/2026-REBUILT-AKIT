@@ -5,27 +5,33 @@
     "data": {
       "commands": [
         {
-          "type": "path",
-          "data": {
-            "pathName": "MIdfieldLeft"
-          }
-        },
-        {
           "type": "named",
           "data": {
-            "name": "Setup and Shoot"
+            "name": "Disable Vision"
           }
         },
         {
           "type": "path",
           "data": {
-            "pathName": "LeftTrench"
+            "pathName": "centershoot"
           }
         },
         {
           "type": "named",
           "data": {
-            "name": "Setup and Shoot"
+            "name": "Enable Vision"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Lower Intake"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Shoot Short"
           }
         }
       ]
