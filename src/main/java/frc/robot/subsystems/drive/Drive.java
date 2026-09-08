@@ -65,6 +65,12 @@ public class Drive extends SubsystemBase {
   private SwerveDrivePoseEstimator poseEstimator =
       new SwerveDrivePoseEstimator(kinematics, rawGyroRotation, lastModulePositions, Pose2d.kZero);
 
+  // Vision gating parameters
+  private static final double kMaxVisionAgeSeconds = 0.5; // drop measurements older than this
+  private static final double kMaxVisionFutureSeconds = 0.1; // drop measurements that appear in the future
+  private static final double kMahalanobisThreshold = 16.0; // squared normalized threshold (~4-sigma per axis)
+  private static final double kSpeedStdDevFactor = 0.5; // additional stddev per m/s of chassis speed
+
   public Drive(
       GyroIO gyroIO,
       ModuleIO flModuleIO,
@@ -313,8 +319,52 @@ public class Drive extends SubsystemBase {
       Pose2d visionRobotPoseMeters,
       double timestampSeconds,
       Matrix<N3, N1> visionMeasurementStdDevs) {
-    poseEstimator.addVisionMeasurement(
-        visionRobotPoseMeters, timestampSeconds, visionMeasurementStdDevs);
+    // Basic timestamp sanity checks
+    double now = edu.wpi.first.wpilibj.Timer.getFPGATimestamp();
+    double age = now - timestampSeconds;
+    if (age > kMaxVisionAgeSeconds) {
+      Logger.recordOutput("Vision/Rejection/AgeTooOld", age);
+      return;
+    }
+    if (timestampSeconds - now > kMaxVisionFutureSeconds) {
+      Logger.recordOutput("Vision/Rejection/TimeInFuture", timestampSeconds - now);
+      return;
+    }
+
+    // Inflate measurement uncertainty when moving quickly to avoid corrupting odometry
+    double speed = Math.hypot(getFieldRelativeSpeeds().vxMetersPerSecond, getFieldRelativeSpeeds().vyMetersPerSecond);
+    Matrix<N3, N1> inflatedStdDevs = visionMeasurementStdDevs.copy();
+    if (speed > 0.01) {
+      double factor = 1.0 + kSpeedStdDevFactor * speed;
+      inflatedStdDevs.set(0, 0, visionMeasurementStdDevs.get(0, 0) * factor);
+      inflatedStdDevs.set(1, 0, visionMeasurementStdDevs.get(1, 0) * factor);
+      inflatedStdDevs.set(2, 0, visionMeasurementStdDevs.get(2, 0) * factor);
+      Logger.recordOutput("Vision/Inflation/Factor", factor);
+    }
+
+    // Mahalanobis-style gating: compare innovation to measurement stddevs (approximate)
+    try {
+      Pose2d predicted = getPose();
+      double dx = visionRobotPoseMeters.getX() - predicted.getX();
+      double dy = visionRobotPoseMeters.getY() - predicted.getY();
+      double dtheta = visionRobotPoseMeters.getRotation().minus(predicted.getRotation()).getRadians();
+      double nx = dx / Math.max(1e-6, inflatedStdDevs.get(0, 0));
+      double ny = dy / Math.max(1e-6, inflatedStdDevs.get(1, 0));
+      double ntheta = dtheta / Math.max(1e-6, inflatedStdDevs.get(2, 0));
+      double mahalanobis = nx * nx + ny * ny + ntheta * ntheta;
+      Logger.recordOutput("Vision/Gating/Mahalanobis", mahalanobis);
+      if (mahalanobis > kMahalanobisThreshold) {
+        Logger.recordOutput("Vision/Rejection/Mahalanobis", mahalanobis);
+        return;
+      }
+    } catch (Exception e) {
+      // If any failure occurs, fall back to accepting the measurement
+      Logger.recordOutput("Vision/Gating/Error", e.getMessage());
+    }
+
+    // Accept measurement
+    poseEstimator.addVisionMeasurement(visionRobotPoseMeters, timestampSeconds, inflatedStdDevs);
+    Logger.recordOutput("Vision/Accepted/Latest", visionRobotPoseMeters);
   }
 
   /** Returns the maximum linear speed in meters per sec. */
