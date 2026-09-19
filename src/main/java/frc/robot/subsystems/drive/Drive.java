@@ -67,9 +67,12 @@ public class Drive extends SubsystemBase {
 
   // Vision gating parameters
   private static final double kMaxVisionAgeSeconds = 0.5; // drop measurements older than this
-  private static final double kMaxVisionFutureSeconds = 0.1; // drop measurements that appear in the future
-  private static final double kMahalanobisThreshold = 16.0; // squared normalized threshold (~4-sigma per axis)
-  private static final double kSpeedStdDevFactor = 0.5; // additional stddev per m/s of chassis speed
+  private static final double kMaxVisionFutureSeconds =
+      0.1; // drop measurements that appear in the future
+  private static final double kMahalanobisThreshold =
+      16.0; // squared normalized threshold (~4-sigma per axis)
+  private static final double kSpeedStdDevFactor =
+      0.5; // additional stddev per m/s of chassis speed
 
   public Drive(
       GyroIO gyroIO,
@@ -332,7 +335,9 @@ public class Drive extends SubsystemBase {
     }
 
     // Inflate measurement uncertainty when moving quickly to avoid corrupting odometry
-    double speed = Math.hypot(getFieldRelativeSpeeds().vxMetersPerSecond, getFieldRelativeSpeeds().vyMetersPerSecond);
+    double speed =
+        Math.hypot(
+            getFieldRelativeSpeeds().vxMetersPerSecond, getFieldRelativeSpeeds().vyMetersPerSecond);
     Matrix<N3, N1> inflatedStdDevs = visionMeasurementStdDevs.copy();
     if (speed > 0.01) {
       double factor = 1.0 + kSpeedStdDevFactor * speed;
@@ -347,7 +352,8 @@ public class Drive extends SubsystemBase {
       Pose2d predicted = getPose();
       double dx = visionRobotPoseMeters.getX() - predicted.getX();
       double dy = visionRobotPoseMeters.getY() - predicted.getY();
-      double dtheta = visionRobotPoseMeters.getRotation().minus(predicted.getRotation()).getRadians();
+      double dtheta =
+          visionRobotPoseMeters.getRotation().minus(predicted.getRotation()).getRadians();
       double nx = dx / Math.max(1e-6, inflatedStdDevs.get(0, 0));
       double ny = dy / Math.max(1e-6, inflatedStdDevs.get(1, 0));
       double ntheta = dtheta / Math.max(1e-6, inflatedStdDevs.get(2, 0));

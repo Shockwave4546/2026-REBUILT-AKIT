@@ -228,11 +228,13 @@ public class RobotContainer {
                           indexer));
                 },
                 java.util.Set.of(launcher, indexer))));
-    // Aim barrel at hub (align only, no shooting) — same range as X button
+    // Aim barrel at hub (align only, no shooting) — same range as X button.
+    // aimBarrelAtHub never finishes on its own, so time-box it or the auto sequence never advances.
     NamedCommands.registerCommand(
         "Aim Barrel at Hub",
         Commands.defer(
-            () -> VisionCommands.aimBarrelAtHub(drive, 3.09, 3.70), java.util.Set.of(drive)));
+            () -> VisionCommands.aimBarrelAtHub(drive, 3.09, 3.70).withTimeout(3.0),
+            java.util.Set.of(drive)));
     // Rangefinder shot: read pose distance now, look up RPM, spin up and fire once
     NamedCommands.registerCommand(
         "Rangefinder Shot",
