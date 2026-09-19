@@ -4,7 +4,8 @@
   "holonomicMode": true,
   "pathFolders": [
     "New Folder",
-    "New New Folder"
+    "New New Folder",
+    "New New New Folder"
   ],
   "autoFolders": [
     "New Folder"
