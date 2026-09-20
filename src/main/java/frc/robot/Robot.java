@@ -75,6 +75,17 @@ public class Robot extends LoggedRobot {
     // Instantiate our RobotContainer. This will perform all our button bindings,
     // and put our autonomous chooser on the dashboard.
     robotContainer = new RobotContainer();
+
+    // Log the actual tag 26 X position so we can verify hub center offset
+    var layout = frc.robot.subsystems.vision.VisionConstants.aprilTagLayout;
+    layout
+        .getTagPose(26)
+        .ifPresent(
+            pose ->
+                System.out.printf(
+                    "[FieldConstants] Tag 26 X from layout: %.4f m (we hardcode 4.5, hub center = %.4f)%n",
+                    pose.getX(),
+                    pose.getX() + frc.robot.FieldConstants.LinesVertical.kTagToHubCenterM));
   }
 
   /** This function is called periodically during all modes. */
@@ -90,6 +101,7 @@ public class Robot extends LoggedRobot {
     // This must be called from the robot's periodic block in order for anything in
     // the Command-based framework to work.
     CommandScheduler.getInstance().run();
+    robotContainer.periodic();
 
     // Return to non-RT thread priority (do not modify the first argument)
     // Threads.setCurrentThreadPriority(false, 10);
@@ -139,6 +151,10 @@ public class Robot extends LoggedRobot {
     if (autonomousCommand != null) {
       autonomousCommand.cancel();
     }
+
+    // Always re-enable vision when entering teleop, in case it was disabled during auto
+    // (e.g., if auto was stopped early before a "Enable Vision" command ran).
+    robotContainer.enableVision();
   }
 
   /** This function is called periodically during operator control. */

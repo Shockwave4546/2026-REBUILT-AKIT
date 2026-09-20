@@ -17,7 +17,7 @@ public final class IndexerConstants {
   public static final int kIndexerMotorCanId = 40;
 
   // Motor inversion
-  public static final boolean kIndexerMotorInverted = false;
+  public static final boolean kIndexerMotorInverted = true;
 
   // Current limit
   public static final int kIndexerMotorCurrentLimit = 20;

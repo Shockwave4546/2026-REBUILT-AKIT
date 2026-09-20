@@ -9,6 +9,25 @@ package frc.robot;
 
 /** Contains shooting constants including flywheel RPM lookup table based on distance from hub. */
 public class ShootingConstants {
+
+  // -----------------------------------------------------------------------
+  // Fudge factors — adjust at events without touching the lookup table
+  // -----------------------------------------------------------------------
+
+  /**
+   * Distance offset (meters). Added to the measured camera distance before looking up RPM. Use a
+   * positive value if the robot consistently undershoots (acts closer than it is), negative if it
+   * overshoots. Start at 0.0 and tune in small increments (~0.05 m).
+   */
+  public static double kDistanceOffsetMeters = .6; // .5m offset for softer fuel at wpi
+
+  /**
+   * RPM multiplier. Applied to the interpolated RPM from the lookup table. Use > 1.0 for
+   * harder/bouncier balls that need more speed, < 1.0 for softer balls. Typical range: 0.90 – 1.10.
+   */
+  public static double kRpmMultiplier = 1.0;
+
+  // -----------------------------------------------------------------------
   /**
    * Lookup table for flywheel RPM based on distance from hub.
    *
@@ -18,11 +37,10 @@ public class ShootingConstants {
    * interpolate between values.
    */
   private static final double[][] RPM_LOOKUP_TABLE = {
-    {2.0, 2500}, // 2 meters: 2700 RPM (minimum distance)
-    {2.5, 2700},
-    {3.0, 2900},
-    {3.5, 3400},
-    {4.0, 3800}, // 4 meters: 3800 RPM (maximum distance)
+    {3.09, 2675}, // 3.09 m → 2675 RPM (minimum calibrated distance)
+    {3.22, 2725},
+    {3.41, 2800},
+    {3.70, 2900} //  3.70 m → 2900 RPM (maximum calibrated distance)
   };
 
   /**
@@ -33,8 +51,11 @@ public class ShootingConstants {
    * @return Required flywheel RPM (interpolated if needed)
    */
   public static double getFlywheelRPM(double distanceMeters) {
-    // Clamp distance to valid range
-    double distance = Math.max(2.0, Math.min(4.0, distanceMeters));
+    double minDist = RPM_LOOKUP_TABLE[0][0];
+    double maxDist = RPM_LOOKUP_TABLE[RPM_LOOKUP_TABLE.length - 1][0];
+
+    // Apply distance offset fudge factor, then clamp to table range
+    double distance = Math.max(minDist, Math.min(maxDist, distanceMeters + kDistanceOffsetMeters));
 
     // Find the two table entries to interpolate between
     for (int i = 0; i < RPM_LOOKUP_TABLE.length - 1; i++) {
@@ -43,15 +64,15 @@ public class ShootingConstants {
       double dist2 = RPM_LOOKUP_TABLE[i + 1][0];
       double rpm2 = RPM_LOOKUP_TABLE[i + 1][1];
 
-      // If distance falls in this range, interpolate
       if (distance >= dist1 && distance <= dist2) {
         double interpolatedRPM = rpm1 + (rpm2 - rpm1) * (distance - dist1) / (dist2 - dist1);
-        return interpolatedRPM;
+        // Apply RPM multiplier fudge factor
+        return interpolatedRPM * kRpmMultiplier;
       }
     }
 
     // If we get here, distance is beyond the table (shouldn't happen due to clamp)
-    return RPM_LOOKUP_TABLE[RPM_LOOKUP_TABLE.length - 1][1];
+    return RPM_LOOKUP_TABLE[RPM_LOOKUP_TABLE.length - 1][1] * kRpmMultiplier;
   }
 
   /**

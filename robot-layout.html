@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Robot Layout Visualization</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111827;
+      color: #e5e7eb;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px;
+      margin: 0;
+    }
+    h1 { color: #93c5fd; margin-bottom: 4px; }
+    .subtitle { color: #9ca3af; font-size: 13px; margin-bottom: 20px; }
+    .main-row {
+      display: flex;
+      gap: 24px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    canvas {
+      border: 1px solid #374151;
+      border-radius: 8px;
+      background: #0f172a;
+      display: block;
+    }
+    .side-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      min-width: 260px;
+      max-width: 320px;
+    }
+    .panel {
+      background: #1e293b;
+      border: 1px solid #374151;
+      border-radius: 8px;
+      padding: 14px 16px;
+    }
+    .panel h3 { margin: 0 0 10px 0; color: #93c5fd; font-size: 14px; }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 7px 0;
+      font-size: 13px;
+    }
+    .swatch {
+      width: 14px; height: 14px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      border: 2px solid rgba(255,255,255,0.4);
+    }
+    .swatch-rect {
+      width: 22px; height: 10px;
+      flex-shrink: 0;
+      border-radius: 2px;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 12px;
+      margin-top: 12px;
+    }
+    th {
+      background: #0f172a;
+      color: #93c5fd;
+      padding: 6px 8px;
+      border: 1px solid #374151;
+      text-align: left;
+    }
+    td {
+      padding: 5px 8px;
+      border: 1px solid #374151;
+    }
+    tr:nth-child(even) td { background: #1a2235; }
+    .note { font-size: 11px; color: #6b7280; margin-top: 6px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <h1>Robot Layout — Top-Down View</h1>
+  <p class="subtitle">Robot forward (↑) = barrel/hub direction &nbsp;|&nbsp; WPILib: X = forward, Y = left, Z = up</p>
+
+  <div class="main-row">
+    <canvas id="c" width="640" height="680"></canvas>
+
+    <div class="side-panel">
+      <div class="panel">
+        <h3>Legend</h3>
+        <div class="legend-item">
+          <div class="swatch-rect" style="background:#f59e0b; border: 2px solid #fcd34d;"></div>
+          <span>Bumper perimeter (30.5" × 30.5")</span>
+        </div>
+        <div class="legend-item">
+          <div class="swatch-rect" style="background:#3b82f6; border: 2px solid #60a5fa;"></div>
+          <span>Robot frame (23.5" × 23.5")</span>
+        </div>
+        <div class="legend-item">
+          <div class="swatch" style="background:#22d3ee;"></div>
+          <span>Swerve module × 4</span>
+        </div>
+        <div class="legend-item">
+          <div class="swatch" style="background:#f97316;"></div>
+          <span>Camera 0 — forward, 15° up<br><span style="color:#9ca3af;font-size:11px;">X=−10.5", Y=−3.0" (right), Z=20.7"</span></span>
+        </div>
+        <div class="legend-item">
+          <div class="swatch" style="background:#a855f7;"></div>
+          <span>Camera 1 — forward, 25° up<br><span style="color:#9ca3af;font-size:11px;">X=−10.5", Y=−1.0" (right), Z=20.7"</span></span>
+        </div>
+        <div class="legend-item">
+          <div class="swatch" style="background:#f43f5e;"></div>
+          <span>Launcher barrel exit<br><span style="color:#9ca3af;font-size:11px;">X=−10.0", Y=−10.0" (right)</span></span>
+        </div>
+        <div class="legend-item">
+          <span style="color:#fbbf24; font-size:16px; font-weight:bold; flex-shrink:0;">+</span>
+          <span>Robot center (origin)</span>
+        </div>
+        <div class="note">FOV cone angles are approximate.<br>Camera0 = wider lens (~80° H-FOV)<br>Camera1 = narrower lens (~50° H-FOV)</div>
+      </div>
+
+      <div class="panel">
+        <h3>Dimensions</h3>
+        <table>
+          <tr><th>Item</th><th>Value</th></tr>
+          <tr><td>Frame (L × W)</td><td>23.5" × 23.5"</td></tr>
+          <tr><td>Bumper (L × W)</td><td>30.5" × 30.5"</td></tr>
+          <tr><td>Bumper thickness</td><td>3.5" per side</td></tr>
+          <tr><td>Center → module</td><td>11.75" diagonal</td></tr>
+          <tr><td>Drive base radius</td><td>~16.62" (0.422m)</td></tr>
+        </table>
+
+        <h3 style="margin-top:14px;">Component Positions</h3>
+        <table>
+          <tr><th>Component</th><th>X (fwd+)</th><th>Y (left+)</th></tr>
+          <tr><td>🔵 Swerve FL</td><td>+11.75"</td><td>+11.75"</td></tr>
+          <tr><td>🔵 Swerve FR</td><td>+11.75"</td><td>−11.75"</td></tr>
+          <tr><td>🔵 Swerve BL</td><td>−11.75"</td><td>+11.75"</td></tr>
+          <tr><td>🔵 Swerve BR</td><td>−11.75"</td><td>−11.75"</td></tr>
+          <tr><td>🟠 Camera 0</td><td>−10.5"</td><td>−3.0"</td></tr>
+          <tr><td>🟣 Camera 1</td><td>−10.5"</td><td>−1.0"</td></tr>
+          <tr><td>🔴 Barrel</td><td>−10.0"</td><td>−10.0"</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('c');
+    const ctx = canvas.getContext('2d');
+
+    const CX = 300;   // canvas center X
+    const CY = 340;   // canvas center Y (offset down for FRONT label room)
+    const S  = 11;    // pixels per inch
+
+    // WPILib → canvas
+    // WPILib X=forward → canvas -Y (up)
+    // WPILib Y=left    → canvas -X (left)
+    function tc(xIn, yIn) {
+      return { x: CX - yIn * S, y: CY - xIn * S };
+    }
+
+    // ── helpers ──────────────────────────────────────────────────────────
+    function rect(cx, cy, wPx, hPx, fill, stroke, lw = 1.5, alpha = 1) {
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = lw;
+      ctx.fillRect(cx - wPx / 2, cy - hPx / 2, wPx, hPx);
+      ctx.strokeRect(cx - wPx / 2, cy - hPx / 2, wPx, hPx);
+      ctx.restore();
+    }
+
+    function circle(cx, cy, r, fill, stroke, lw = 2) {
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = lw;
+      ctx.fill();
+      ctx.stroke();
+    }
+
+    function label(x, y, text, color = '#e5e7eb', size = 11, align = 'center') {
+      ctx.fillStyle = color;
+      ctx.font = `${size}px Arial`;
+      ctx.textAlign = align;
+      ctx.fillText(text, x, y);
+    }
+
+    function fovCone(camX, camY, canvasAngleDeg, fovDeg, length, color) {
+      const center = canvasAngleDeg * Math.PI / 180;
+      const half   = (fovDeg / 2) * Math.PI / 180;
+      const l1 = center - half, l2 = center + half;
+      ctx.beginPath();
+      ctx.moveTo(camX, camY);
+      ctx.lineTo(camX + Math.cos(l1) * length, camY + Math.sin(l1) * length);
+      ctx.lineTo(camX + Math.cos(l2) * length, camY + Math.sin(l2) * length);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.13;
+      ctx.fill();
+      ctx.globalAlpha = 0.55;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
+
+    function dimLine(x1, y1, x2, y2, text, color = '#9ca3af', offset = 14) {
+      const mx = (x1 + x2) / 2, my = (y1 + y2) / 2;
+      const dx = x2 - x1, dy = y2 - y1;
+      const len = Math.sqrt(dx*dx+dy*dy);
+      const nx = -dy/len * offset, ny = dx/len * offset;
+
+      ctx.save();
+      ctx.setLineDash([3, 3]);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.restore();
+      label(mx + nx, my + ny + 4, text, color, 10);
+    }
+
+    // ── background grid ───────────────────────────────────────────────────
+    for (let i = -400; i <= 400; i += 6 * S) {
+      ctx.strokeStyle = i === 0 ? '#2d3f55' : '#1a2535';
+      ctx.lineWidth = i === 0 ? 1.5 : 0.8;
+      ctx.beginPath(); ctx.moveTo(0, CY + i); ctx.lineTo(640, CY + i); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(CX + i, 0); ctx.lineTo(CX + i, 680); ctx.stroke();
+    }
+
+    // ── bumper perimeter ─────────────────────────────────────────────────
+    const bumper = 30.5 * S;
+    rect(CX, CY, bumper, bumper, 'rgba(245,158,11,0.08)', '#f59e0b', 3);
+
+    // ── robot frame ───────────────────────────────────────────────────────
+    const frame = 23.5 * S;
+    rect(CX, CY, frame, frame, 'rgba(59,130,246,0.18)', '#3b82f6', 2);
+
+    // ── FRONT indicator ───────────────────────────────────────────────────
+    const frontY = CY - bumper / 2;
+    ctx.beginPath();
+    ctx.moveTo(CX, frontY - 16);
+    ctx.lineTo(CX - 9, frontY);
+    ctx.lineTo(CX + 9, frontY);
+    ctx.closePath();
+    ctx.fillStyle = '#4ade80';
+    ctx.fill();
+    label(CX, frontY - 21, '▲ FRONT', '#4ade80', 12);
+
+    // ── dimension lines ───────────────────────────────────────────────────
+    const by = CY + bumper / 2 + 18;
+    dimLine(CX - bumper/2, by, CX + bumper/2, by, '30.5"  (bumper)', '#f59e0b', 0);
+
+    const fy = CY + frame / 2 + 6;
+    const fx = CX + bumper / 2 + 12;
+    dimLine(CX - frame/2 - 2, fy + 10, CX + frame/2 + 2, fy + 10, '23.5"  (frame)', '#3b82f6', 0);
+
+    // ── center cross ──────────────────────────────────────────────────────
+    ctx.strokeStyle = '#fbbf24';
+    ctx.lineWidth = 1.5;
+    [-8, 8].forEach(d => {
+      ctx.beginPath(); ctx.moveTo(CX + d, CY); ctx.lineTo(CX - d, CY); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(CX, CY + d); ctx.lineTo(CX, CY - d); ctx.stroke();
+    });
+
+    // ── swerve modules ────────────────────────────────────────────────────
+    const modules = [
+      { name: 'FL', x:  11.75, y:  11.75 },
+      { name: 'FR', x:  11.75, y: -11.75 },
+      { name: 'BL', x: -11.75, y:  11.75 },
+      { name: 'BR', x: -11.75, y: -11.75 },
+    ];
+    for (const m of modules) {
+      const p = tc(m.x, m.y);
+      circle(p.x, p.y, 9, '#164e63', '#22d3ee', 2);
+      // small wheel rectangle
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.fillStyle = '#22d3ee';
+      ctx.fillRect(-5, -3, 10, 6);
+      ctx.restore();
+      const lx = p.x + (m.y > 0 ? -14 : 14);
+      label(lx, p.y - 13, m.name, '#22d3ee', 10, 'center');
+    }
+
+    // ── camera FOV cones ─────────────────────────────────────────────────
+    // Both cameras face robot-forward = canvas UP = angle 270° (−90°) in canvas coords
+    const CAM_DIR = 270; // degrees, pointing up in canvas
+    const cam0p = tc(-10.5, -3.0);
+    const cam1p = tc(-10.5, -1.0);
+
+    fovCone(cam0p.x, cam0p.y, CAM_DIR, 80, 260, '#f97316'); // wide lens
+    fovCone(cam1p.x, cam1p.y, CAM_DIR, 50, 320, '#a855f7'); // narrow/long lens
+
+    // ── camera markers ────────────────────────────────────────────────────
+    circle(cam0p.x, cam0p.y, 7, '#7c2d12', '#f97316', 2.5);
+    label(cam0p.x + 26, cam0p.y + 3,  'CAM 0', '#f97316', 11, 'left');
+    label(cam0p.x + 26, cam0p.y + 14, '15° up · wide', '#9ca3af', 9, 'left');
+
+    circle(cam1p.x, cam1p.y, 7, '#4c1d95', '#a855f7', 2.5);
+    label(cam1p.x - 26, cam1p.y + 3,  'CAM 1', '#a855f7', 11, 'right');
+    label(cam1p.x - 26, cam1p.y + 14, '25° up · narrow', '#9ca3af', 9, 'right');
+
+    // camera baseline (dashed line between them)
+    ctx.save();
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = '#4b5563';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(cam0p.x, cam0p.y);
+    ctx.lineTo(cam1p.x, cam1p.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // ── barrel ────────────────────────────────────────────────────────────
+    const brl = tc(-10.0, -10.0);
+    // dashed line in barrel shooting direction (forward)
+    ctx.save();
+    ctx.setLineDash([5, 4]);
+    ctx.strokeStyle = 'rgba(244,63,94,0.45)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(brl.x, brl.y);
+    ctx.lineTo(brl.x, brl.y - 220);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+    circle(brl.x, brl.y, 7, '#881337', '#f43f5e', 2.5);
+    label(brl.x + 26, brl.y + 3,  'BARREL', '#f43f5e', 11, 'left');
+    label(brl.x + 26, brl.y + 14, 'X=−10", Y=−10"', '#9ca3af', 9, 'left');
+
+    // ── scale bar ─────────────────────────────────────────────────────────
+    const sx = 20, sy = canvas.height - 20;
+    ctx.strokeStyle = '#6b7280'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + 12*S, sy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx, sy-4); ctx.lineTo(sx, sy+4); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx+12*S, sy-4); ctx.lineTo(sx+12*S, sy+4); ctx.stroke();
+    label(sx + 6*S, sy - 7, '12 inches', '#6b7280', 10);
+  </script>
+</body>
+</html>

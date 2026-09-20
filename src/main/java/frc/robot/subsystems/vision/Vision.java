@@ -29,6 +29,7 @@ public class Vision extends SubsystemBase {
   private final VisionIO[] io;
   private final VisionIOInputsAutoLogged[] inputs;
   private final Alert[] disconnectedAlerts;
+  private boolean enabled = true;
 
   public Vision(VisionConsumer consumer, VisionIO... io) {
     this.consumer = consumer;
@@ -50,12 +51,45 @@ public class Vision extends SubsystemBase {
   }
 
   /**
+   * Enables or disables vision pose estimation. When disabled, camera inputs are still processed
+   * (for logging/targeting) but pose observations are not sent to the drive odometry.
+   *
+   * @param enabled true to use April Tag pose estimates, false to ignore them
+   */
+  public void setEnabled(boolean enabled) {
+    this.enabled = enabled;
+    Logger.recordOutput("Vision/Enabled", enabled);
+  }
+
+  /**
    * Returns the X angle to the best target, which can be used for simple servoing with vision.
    *
    * @param cameraIndex The index of the camera to use.
    */
   public Rotation2d getTargetX(int cameraIndex) {
     return inputs[cameraIndex].latestTargetObservation.tx();
+  }
+
+  /**
+   * Returns the average tag distance from the latest pose observation for the given camera. Returns
+   * -1 if no observations are available.
+   *
+   * @param cameraIndex The index of the camera to use.
+   */
+  public double getTargetDistance(int cameraIndex) {
+    var observations = inputs[cameraIndex].poseObservations;
+    if (observations.length == 0) return -1.0;
+    return observations[observations.length - 1].averageTagDistance();
+  }
+
+  /**
+   * Returns true if the given camera has a visible target.
+   *
+   * @param cameraIndex The index of the camera to use.
+   */
+  public boolean hasTarget(int cameraIndex) {
+    return inputs[cameraIndex].poseObservations.length > 0
+        || !inputs[cameraIndex].latestTargetObservation.tx().equals(Rotation2d.kZero);
   }
 
   @Override
@@ -134,6 +168,7 @@ public class Vision extends SubsystemBase {
         }
 
         // Send vision observation
+        if (!enabled) continue;
         consumer.accept(
             observation.pose().toPose2d(),
             observation.timestamp(),

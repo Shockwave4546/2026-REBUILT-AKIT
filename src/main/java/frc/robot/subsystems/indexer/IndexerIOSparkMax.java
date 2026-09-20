@@ -23,7 +23,7 @@ public class IndexerIOSparkMax implements IndexerIO {
     SparkMaxConfig config = new SparkMaxConfig();
     config
         .inverted(IndexerConstants.kIndexerMotorInverted)
-        .idleMode(IdleMode.kCoast)
+        .idleMode(IdleMode.kBrake)
         .smartCurrentLimit(IndexerConstants.kIndexerMotorCurrentLimit);
 
     motor.configure(config, ResetMode.kResetSafeParameters, PersistMode.kPersistParameters);

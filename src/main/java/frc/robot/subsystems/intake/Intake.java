@@ -55,6 +55,7 @@ public class Intake extends SubsystemBase {
   // Wiggle state for shuffling pieces into indexer
   private boolean isWiggling = false;
   private boolean wiggleMovingUp = false;
+  private boolean wiggleWaitingForMove = false; // prevents re-toggling every loop at setpoint
 
   public Intake(IntakeIO io) {
     this.io = io;
@@ -244,7 +245,7 @@ public class Intake extends SubsystemBase {
     double halfwayUp = deployed + ((retracted - deployed) / 1.7); // 59% of the way
 
     // Check if we've reached current position
-    if (isAtTarget()) {
+    if (!wiggleWaitingForMove && isAtTarget()) {
       // Toggle direction
       if (wiggleMovingUp) {
         // Was moving up, now go down
@@ -255,6 +256,9 @@ public class Intake extends SubsystemBase {
         setTargetPosition(halfwayUp);
         wiggleMovingUp = true;
       }
+      wiggleWaitingForMove = true; // don't toggle again until arm starts moving
+    } else if (wiggleWaitingForMove && !isAtTarget()) {
+      wiggleWaitingForMove = false; // arm is moving, allow next toggle
     }
 
     SmartDashboard.putBoolean("Intake/Wiggling", true);
@@ -348,6 +352,7 @@ public class Intake extends SubsystemBase {
   public void startWiggle() {
     isWiggling = true;
     wiggleMovingUp = false;
+    wiggleWaitingForMove = false;
     // Start at low position
     setTargetPosition(IntakeConstants.kIntakePivotDeployedPosition);
   }

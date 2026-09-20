@@ -23,25 +23,30 @@ public class VisionConstants {
 
   // Robot to camera transforms
   // (Not used by Limelight, configure in web UI instead)
-  // Front Left Camera: 3 inches right, 10.5 inches back, 20.7 inches high
+  // WPILib convention: X = forward (+ = toward front), Y = left (+ = left, - = right), Z = up
+  // Front Left Camera: 10.5 inches back, 3 inches right, 20.7 inches high, 15 degrees up
   public static Transform3d robotToCamera0 =
       new Transform3d(
           new edu.wpi.first.math.geometry.Translation3d(
-              edu.wpi.first.math.util.Units.inchesToMeters(3.0), // X: 3 inches right
-              edu.wpi.first.math.util.Units.inchesToMeters(-10.5), // Y: 10.5 inches back
+              edu.wpi.first.math.util.Units.inchesToMeters(-10.5), // X: 10.5 inches back
+              edu.wpi.first.math.util.Units.inchesToMeters(-3.0), // Y: 3 inches right (negative Y)
               edu.wpi.first.math.util.Units.inchesToMeters(20.7) // Z: 20.7 inches high
               ),
-          new Rotation3d(0, 0, 0) // No rotation, facing horizon
+          new Rotation3d(0, Math.toRadians(-15), 0) // 15 degrees upward tilt
           );
-  // Front Right Camera: 10 inches right, 8.5 inches back, 18.7 inches high
+  // Front Camera 2: 10.5 inches back, 1 inch right (2 inches left of Camera0), 20.7 inches high, 25
+  // degrees up
   public static Transform3d robotToCamera1 =
       new Transform3d(
           new edu.wpi.first.math.geometry.Translation3d(
-              edu.wpi.first.math.util.Units.inchesToMeters(10), // X: 10 inches right
-              edu.wpi.first.math.util.Units.inchesToMeters(-8.5), // Y: 8.5 inches back
-              edu.wpi.first.math.util.Units.inchesToMeters(18.7) // Z: 18.7 inches high
+              edu.wpi.first.math.util.Units.inchesToMeters(
+                  -10.5), // X: 10.5 inches back (same as Camera0)
+              edu.wpi.first.math.util.Units.inchesToMeters(
+                  -1.0), // Y: 1 inch right (2 inches left of Camera0)
+              edu.wpi.first.math.util.Units.inchesToMeters(
+                  20.7) // Z: 20.7 inches high (same as Camera0)
               ),
-          new Rotation3d(0, 0, Math.PI) // Rotated 180 degrees
+          new Rotation3d(0, Math.toRadians(-25), 0) // 25 degrees upward tilt, forward-facing
           );
 
   // Basic filtering thresholds
@@ -50,8 +55,11 @@ public class VisionConstants {
 
   // Standard deviation baselines, for 1 meter distance and 1 tag
   // (Adjusted automatically based on distance and # of tags)
-  public static double linearStdDevBaseline = 0.02; // Meters
-  public static double angularStdDevBaseline = 0.06; // Radians
+  // Higher values = trust vision less, smoother odometry but slower correction
+  // Lower values = trust vision more, faster correction but jitter risk at low speed
+  public static double linearStdDevBaseline =
+      0.08; // Meters (was 0.02 - increased to reduce jitter)
+  public static double angularStdDevBaseline = 0.12; // Radians (was 0.06)
 
   // Standard deviation multipliers for each camera
   // (Adjust to trust some cameras more than others)

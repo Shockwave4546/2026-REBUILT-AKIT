@@ -284,6 +284,31 @@ public class DriveCommands {
                     })));
   }
 
+  /**
+   * Slowly drives the robot into the human player station wall to guarantee a consistent starting
+   * position. The robot drives at a low field-relative speed toward its own alliance wall (X=0 for
+   * blue, X=fieldLength for red) for {@code durationSecs} seconds, stalling against the wall.
+   *
+   * <p>Use at the end of an auto routine that parks at the human player station so the robot is
+   * flush against the wall when teleop begins.
+   *
+   * @param drive The drive subsystem.
+   * @param speedMetersPerSec Speed to press into the wall (positive value, e.g. 0.5 m/s).
+   * @param durationSecs How long to press (e.g. 1.0–1.5 s).
+   */
+  public static Command pressAgainstHumanPlayerStation(
+      Drive drive, double speedMetersPerSec, double durationSecs) {
+    return Commands.run(
+            () -> {
+              // Robot always ends the path facing away from the wall, so drive robot-relative
+              // -X to press against it. PathPlanner handles alliance mirroring automatically.
+              drive.runVelocity(new ChassisSpeeds(-speedMetersPerSec, 0.0, 0.0));
+            },
+            drive)
+        .withTimeout(durationSecs)
+        .finallyDo(() -> drive.runVelocity(new ChassisSpeeds()));
+  }
+
   private static class WheelRadiusCharacterizationState {
     double[] positions = new double[4];
     Rotation2d lastAngle = Rotation2d.kZero;

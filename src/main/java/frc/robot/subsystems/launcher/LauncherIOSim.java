@@ -26,9 +26,10 @@ public class LauncherIOSim implements LauncherIO {
             1.0);
 
     // Shooter simulation (simulated as dual NEO motors)
+    // MOI reduced to 0.004 kg*m^2 so sim spins up in ~1-2s like the real robot
     shooterSim =
         new FlywheelSim(
-            LinearSystemId.createFlywheelSystem(DCMotor.getNEO(2), 0.05, 1.0),
+            LinearSystemId.createFlywheelSystem(DCMotor.getNEO(2), 0.004, 1.0),
             DCMotor.getNEO(2),
             1.0);
   }
