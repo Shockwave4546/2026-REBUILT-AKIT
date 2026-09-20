@@ -5,6 +5,18 @@
     "data": {
       "commands": [
         {
+          "type": "named",
+          "data": {
+            "name": "Lower Intake"
+          }
+        },
+        {
+          "type": "wait",
+          "data": {
+            "waitTime": 1.0
+          }
+        },
+        {
           "type": "path",
           "data": {
             "pathName": "MIdfieldLeft"
@@ -19,7 +31,13 @@
         {
           "type": "named",
           "data": {
-            "name": "Align to Hub"
+            "name": "Aim Barrel at Hub"
+          }
+        },
+        {
+          "type": "named",
+          "data": {
+            "name": "Rangefinder Shot"
           }
         }
       ]

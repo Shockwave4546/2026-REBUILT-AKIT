@@ -10,6 +10,15 @@ package frc.robot;
 /** Contains shooting constants including flywheel RPM lookup table based on distance from hub. */
 public class ShootingConstants {
 
+  /**
+   * Barrel-to-hub shooting window (meters) enforced by aimBarrelAtHub. Note the RPM lookup adds
+   * kDistanceOffsetMeters and clamps to the table range, so RPM is nearly flat across this window;
+   * pull the max in if far shots fall short.
+   */
+  public static final double kShootWindowMinMeters = 3.09;
+
+  public static final double kShootWindowMaxMeters = 3.40;
+
   // -----------------------------------------------------------------------
   // Fudge factors — adjust at events without touching the lookup table
   // -----------------------------------------------------------------------

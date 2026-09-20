@@ -198,7 +198,11 @@ public class RobotContainer {
         "Setup and Shoot",
         Commands.sequence(
             // Phase 1: align barrel and enforce distance (drive required here only)
-            VisionCommands.aimBarrelAtHub(drive, 3.09, 3.70).withTimeout(3.0),
+            VisionCommands.aimBarrelAtHub(
+                    drive,
+                    ShootingConstants.kShootWindowMinMeters,
+                    ShootingConstants.kShootWindowMaxMeters)
+                .withTimeout(3.0),
             // Phase 2: look up RPM, spin up, fire — no drive required
             Commands.defer(
                 () -> {
@@ -233,7 +237,12 @@ public class RobotContainer {
     NamedCommands.registerCommand(
         "Aim Barrel at Hub",
         Commands.defer(
-            () -> VisionCommands.aimBarrelAtHub(drive, 3.09, 3.70).withTimeout(3.0),
+            () ->
+                VisionCommands.aimBarrelAtHub(
+                        drive,
+                        ShootingConstants.kShootWindowMinMeters,
+                        ShootingConstants.kShootWindowMaxMeters)
+                    .withTimeout(3.0),
             java.util.Set.of(drive)));
     // Rangefinder shot: read pose distance now, look up RPM, spin up and fire once
     NamedCommands.registerCommand(
@@ -621,7 +630,11 @@ public class RobotContainer {
     controller
         .rightBumper()
         .and(() -> !SmartDashboard.getBoolean("Drive/Demo Mode", false))
-        .whileTrue(VisionCommands.aimBarrelAtHub(drive, 3.09, 3.70));
+        .whileTrue(
+            VisionCommands.aimBarrelAtHub(
+                drive,
+                ShootingConstants.kShootWindowMinMeters,
+                ShootingConstants.kShootWindowMaxMeters));
 
     // x button: Hold to align barrel to hub using global field pose (disabled in demo mode)
     controller
